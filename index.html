@@ -192,8 +192,7 @@
         <label>만년필 촉 <span class="segs" id="advNib"><button data-n="EF">EF</button><button data-n="F">F</button><button data-n="M">M</button><button data-n="B">B</button></span><canvas class="smp tall" id="smpNib"></canvas></label>
         <label>가벼운 모드 <span class="segs" id="advLite"><button data-v="0">끔</button><button data-v="1">켬</button></span><small><span>느린 기기에서 반응이 빨라져요 · 화면이 조금 덜 선명해요</span></small></label>
         <button id="advReset" class="lite">기본값으로</button>
-        <button id="perfBtn" class="lite" style="margin-top:6px">속도 재기</button>
-        <small style="justify-content:flex-end;margin-top:8px;opacity:.7"><span>판 v14 · 11.26.</span></small>
+        <small style="justify-content:flex-end;margin-top:8px;opacity:.7"><span>판 v15 · 11.26.</span></small>
       </div></span>
   </div>
 </header>
@@ -1776,7 +1775,6 @@ sheet.addEventListener('pointermove', ev => {
   ev.preventDefault();
   const list = ev.getCoalescedEvents ? ev.getCoalescedEvents() : [];
   if (list.length) for (const e of list) addPoint(e); else addPoint(ev);
-  perfAfter(ev);
 }, { passive: false });
 function finish(ev){
   if (ev.pointerType === 'pen') state.penUpT = performance.now();
@@ -1797,7 +1795,7 @@ function endStroke(){
   soundHush();
 }
 sheet.addEventListener('pointerup', finish);
-sheet.addEventListener('pointercancel', e => { if (Perf.on) Perf.cancel++; finish(e); });
+sheet.addEventListener('pointercancel', finish);
 /* 사파리·크롬(아이패드)은 펜으로 그은 것을 '손글씨 입력(Scribble)'이나 화면 몸짓으로 가져가 획을 끊기도 한다.
    종이 위의 터치는 이 앱이 쓴다고 알려서 가로채지 않게 한다(앱 안 브라우저에서는 이 기능이 꺼져 있어 원래 잘 됐다) */
 for (const t of ['touchstart', 'touchmove']) sheet.addEventListener(t, e => { if (e.cancelable) e.preventDefault(); }, { passive: false });
@@ -2712,28 +2710,6 @@ function setAdvUI(){
   for (const b of document.querySelectorAll('#advNib button')) b.classList.toggle('on', b.dataset.n === adv.nib);
   for (const b of document.querySelectorAll('#advLite button')) b.classList.toggle('on', (b.dataset.v === '1') === !!adv.lite);
 }
-/* 속도 재기: 쓰는 동안 실제 기기에서 무엇이 느린지 화면에 숫자로 보여 준다 */
-const Perf = { on: false, cancel: 0, n: 0, co: 0, hs: 0, hmax: 0, fmax: 0, fsum: 0, fn: 0, lt: 0, t0: 0 };
-sheet.addEventListener('pointermove', e => { if (Perf.on && active) Perf.t0 = performance.now(); }, true);
-function perfAfter(e){ if (!Perf.on || !Perf.t0) return; const d = performance.now() - Perf.t0; Perf.t0 = 0; Perf.n++; Perf.hs += d; if (d > Perf.hmax) Perf.hmax = d; Perf.co += e.getCoalescedEvents ? e.getCoalescedEvents().length : 1; }
-function perfLoop(t){
-  if (!Perf.on) return;
-  if (Perf.lt) { const f = t - Perf.lt; if (active) { Perf.fsum += f; Perf.fn++; if (f > Perf.fmax) Perf.fmax = f; } }
-  Perf.lt = t; requestAnimationFrame(perfLoop);
-}
-setInterval(() => {
-  if (!Perf.on) return;
-  const el = $('#perfBox'); if (!el) return;
-  el.textContent = Perf.n ? `펜 이벤트 ${Perf.n}/초 (점 ${Perf.co}) · 처리 평균 ${(Perf.hs / Perf.n).toFixed(1)}ms 최대 ${Perf.hmax.toFixed(0)}ms · 화면 평균 ${(Perf.fsum / Math.max(1, Perf.fn)).toFixed(0)}ms 최대 ${Perf.fmax.toFixed(0)}ms · 끊긴 획 ${Perf.cancel}`
-    : `펜으로 써 보세요 · 화면 ${Math.round(L.w * DPR)}×${Math.round(L.h * DPR)} · 선명도 ${DPR} · 가벼운 모드 ${adv.lite ? '켬' : '끔'}`;
-  Object.assign(Perf, { n: 0, co: 0, hs: 0, hmax: 0, fmax: 0, fsum: 0, fn: 0 });
-}, 1000);
-$('#perfBtn').addEventListener('click', () => {
-  Perf.on = !Perf.on; $('#perfBtn').textContent = Perf.on ? '속도 재기 끄기' : '속도 재기';
-  let el = $('#perfBox');
-  if (Perf.on) { if (!el) { el = document.createElement('div'); el.id = 'perfBox'; el.style.cssText = 'position:fixed;left:8px;bottom:8px;z-index:80;padding:6px 10px;border-radius:8px;background:rgba(30,26,20,.82);color:#fff;font:12.5px/1.4 system-ui,sans-serif;pointer-events:none;max-width:calc(100vw - 16px)'; document.body.append(el); } el.textContent = '측정 중…'; Perf.lt = 0; requestAnimationFrame(perfLoop); }
-  else if (el) el.remove();
-});
 const advSet = (k, v) => { adv[k] = v; store.set('adv', adv); applyAdv(); setAdvUI(); drawAdvSamples(); };
 $('#advBtn').addEventListener('click', e => { e.stopPropagation(); if ($('#adv').classList.toggle('open')) drawAdvSamples(); });
 /* 고급 설정 견본: 지금 설정으로 그 필기구가 실제로 쓴 한 줄(종이에 쓰는 획 엔진 그대로) */
