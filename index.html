@@ -85,6 +85,14 @@
     background:#fffdf8;border-radius:14px;box-shadow:0 12px 32px -10px rgba(50,40,20,.45),0 0 0 1px rgba(60,45,20,.08);display:none}
   #copyMenu.open{display:block}
   #fsBtn.on{color:var(--red)}
+  #kindMenu .orient{display:flex;gap:4px;padding:2px 4px 4px} #kindMenu .orient button{flex:1;height:44px;justify-content:center;gap:6px;font:500 14px/1 system-ui,sans-serif}
+  #kindMenu .orient svg{width:22px;height:22px;filter:none}
+  body.full #bar{position:fixed;left:0;right:0;top:0;transform:translateY(-110%);transition:transform .22s ease;z-index:60}
+  body.full.showbar #bar{transform:none}
+  body.full #desk{top:0}
+  #fsHandle{position:fixed;bottom:10px;right:10px;z-index:61;display:none;width:40px;height:40px;min-width:40px;padding:0;justify-content:center;border-radius:50%;
+    background:rgba(255,253,246,.72);box-shadow:0 1px 4px rgba(60,45,20,.22);color:#6d6355}
+  body.full #fsHandle{display:inline-flex}
   #copyBtn.on{background:var(--pencil-soft);box-shadow:inset 0 -3px 0 var(--pencil)}
   #copyMenu .it{width:100%;height:auto;min-height:48px;justify-content:space-between;gap:10px;padding:8px 12px;border-radius:10px;font-family:"Nanum Myeongjo","Noto Serif KR","AppleMyungjo","Batang",serif}
   #copyMenu .it b{font-size:16px;font-weight:700;white-space:normal;text-align:left} #copyMenu .it small{color:#8a8072;font-size:13px;flex:none}
@@ -194,10 +202,11 @@
         <label>만년필 촉 <span class="segs" id="advNib"><button data-n="EF">EF</button><button data-n="F">F</button><button data-n="M">M</button><button data-n="B">B</button></span><canvas class="smp tall" id="smpNib"></canvas></label>
         <label>가벼운 모드 <span class="segs" id="advLite"><button data-v="0">끔</button><button data-v="1">켬</button></span><small><span>느린 기기에서 반응이 빨라져요 · 화면이 조금 덜 선명해요</span></small></label>
         <button id="advReset" class="lite">기본값으로</button>
-        <small style="justify-content:flex-end;margin-top:8px;opacity:.7"><span>판 v16 · 11.26.</span></small>
+        <small style="justify-content:flex-end;margin-top:8px;opacity:.7"><span>판 v17 · 11.26.</span></small>
       </div></span>
   </div>
 </header>
+<button id="fsHandle" aria-label="도구 보이기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 8h14M5 12h14M5 16h14"/></svg></button>
 <main id="desk"><div id="copyBox"><div class="hd"><button id="copyPick" title="시 고르기"><b id="copyTitle"></b><small id="copyBy"></small><svg class="caret" viewBox="0 0 10 10"><path d="M2 4l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></button><button id="copyClose" aria-label="필사 닫기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div><div id="copyText"></div><div id="copyMenu"></div></div><div id="sheet"><canvas id="paper"></canvas><canvas id="ink"></canvas><canvas id="fx"></canvas></div></main>
 <div id="toast"></div>
 
@@ -235,6 +244,7 @@ const state = {
   fsound: ['fine', 'soft', 'wet'].includes(store.get('fsound', 'soft')) ? store.get('fsound', 'soft') : 'soft',
   paper: clamp(store.get('paper', 0), 0, 3),
   cell: Object.assign({ notebook: 96, manuscript: 52, vmanuscript: 52, lined: 36, plain: 40 }, store.get('cell', {})),           // 0 끔, 1 작게, 2 보통
+  orient: store.get('orient', innerWidth >= innerHeight ? 'land' : 'port'),   // 용지 방향: 가로형·세로형
   finger: false,
   penSeen: false,
   realPressure: false,
@@ -565,53 +575,62 @@ $('#copyPick').addEventListener('click', e => { e.stopPropagation(); const m = $
 document.addEventListener('pointerdown', e => { const m = $('#copyMenu'); if (m.classList.contains('open') && !e.target.closest('#copyMenu,#copyPick')) m.classList.remove('open'); });
 copyRender();
 const isFull = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
-function computeLayout(){
-  const top0 = copyH();   // 필사 중이면 위쪽은 시 칸 자리
-  const vw = desk.clientWidth, vh = desk.clientHeight - top0;
-  const pad = vw < 700 ? 8 : 18;
+/* 배치: 먼저 고른 용지 방향(가로형·세로형)의 가상 종이에서 칸 수를 정하고, 그 칸 수 그대로 지금 화면에 맞춘다.
+   그래서 태블릿을 돌려도 칸 수가 바뀌지 않고 종이 크기만 달라진다(끝에 쓴 글씨가 잘리지 않음) */
+function layoutCore(vw, vh, F){   // F: 칸 수를 정해 두고 크기만 맞출 때 { cols, rows, gw, gh(칸 단위 격자 크기), sMax }
+  const pad = isFull() ? 4 : vw < 700 ? 8 : 18;
   const W = vw - pad * 2, H = vh - pad * 2;
   const nb = state.mode === 'notebook', vert = state.mode === 'vmanuscript', lined = state.mode === 'lined', plain = state.mode === 'plain', free = lined || plain;
   const m = clamp(Math.min(W, H) * .045, nb || free ? 30 : 22, 44);
   const headH = nb || free ? 40 : vert ? 30 : 22, footH = free ? 14 : vert ? 30 : 24;
   const gap = nb ? .32 : free ? 0 : vert ? .3 : .40;
-  const innerW = W - 2 * m, innerH = H - 2 * m - headH - footH;
-  if (vert || free) {   // 세로 원고지: 칸이 위에서 아래로 이어지는 세로줄(오른쪽부터 씀) · 줄·무지 공책: 줄 간격만큼 나눈 빈 바탕
+  const mm = vert ? m + 8 : m;   // 세로 원고지는 테두리가 칸에서 떨어진 만큼 바깥 여백도
+  const innerW = W - 2 * mm, innerH = H - 2 * mm - headH - footH;
+  const O = { nb, vert, free, lined, plain, m: mm, headH, footH, gap };
+  if (F) {
+    const sv = Math.min(innerW / F.gw, innerH / F.gh, F.sMax || 1e9);
+    Object.assign(O, { cols: F.cols, rows: F.rows, s: sv, gridW: F.gw * sv, gridH: F.gh * sv });
+  } else if (vert || free) {   // 세로 원고지: 칸이 위에서 아래로 이어지는 세로줄(오른쪽부터 씀) · 줄·무지 공책: 줄 간격만큼 나눈 빈 바탕
     const R0 = SIZE_RANGE[state.mode]; let s0 = clamp(state.cell[state.mode] || R0[0], R0[0], R0[1]);
     let rows0, cols0;
     if (vert) {
-      if (isFull()) { rows0 = 20; s0 = Math.min(innerH / 20, innerW / (10 + 9 * gap)); }   // 전체 화면: 200자 세로 원고지(한 줄 20칸×10줄)
-      else if (vh > vw) { rows0 = 20; s0 = Math.min(s0 * 1.25, innerH / 20); }   // 태블릿을 세로로 들면: 진짜 세로 원고지처럼 한 줄 20칸을 꽉 채운다
+      if (vh > vw) { rows0 = 20; s0 = Math.min(s0 * 1.25, innerH / 20); }   // 세로형 용지: 진짜 세로 원고지처럼 한 줄 20칸을 꽉 채운다
       else { rows0 = Math.min(20, Math.max(6, Math.floor(innerH / s0))); s0 = Math.min(s0, innerH / rows0); }
-      cols0 = isFull() ? 10 : Math.max(3, Math.floor((innerW + gap * s0) / (s0 * (1 + gap))));
+      cols0 = Math.max(3, Math.floor((innerW + gap * s0) / (s0 * (1 + gap))));
     }
     else { cols0 = Math.max(4, Math.floor(innerW / s0)); rows0 = Math.max(4, Math.floor(innerH / s0)); }
-    Object.assign(L, { nb: false, vert, free, lined, plain, m, headH, footH, gap, cols: cols0, rows: rows0, s: s0, gx: m, gy: m + headH,
-      gridW: vert ? cols0 * s0 + (cols0 - 1) * gap * s0 : (free ? innerW : cols0 * s0), gridH: rows0 * s0 });
-    if (vert) { L.m = m + 8; L.gx = L.m; L.gy = L.m + headH; }   // 테두리가 칸에서 떨어진 만큼 바깥 여백도
-    L.w = Math.round(L.gridW + 2 * L.m); L.h = Math.round(L.gridH + 2 * L.m + headH + footH);
-    L.left = Math.round((vw - L.w) / 2); L.top = top0 + Math.round((vh - L.h) / 2);
-    L.penR = clamp(.75 + (free ? 40 : s0) * .012, 1.2, 2.1); L.eraserR = clamp((free ? 40 : s0) * .095, 5.5, 11);
-    return;
+    Object.assign(O, { cols: cols0, rows: rows0, s: s0, gridW: vert ? cols0 * s0 + (cols0 - 1) * gap * s0 : (free ? innerW : cols0 * s0), gridH: rows0 * s0 });
+  } else {
+    // 칸 크기는 사용자가 고른다. 한 줄에 들어가는 칸 수는 종이 폭에 맞춰 정해지고, 원고지는 최대 20칸.
+    const R = SIZE_RANGE[state.mode];
+    let sz = clamp(state.cell[state.mode], R[0], R[1]);
+    const cols = Math.min(nb ? 12 : 20, Math.max(nb ? 4 : 8, Math.floor(innerW / sz)));
+    sz = Math.min(sz, innerW / cols);
+    let rows = Math.floor((innerH + gap * sz) / (sz * (1 + gap)));
+    if (rows < 2) { rows = 2; sz = Math.min(sz, innerH / (2 + gap)); }
+    Object.assign(O, { cols, rows, s: sz, gridW: cols * sz, gridH: rows * sz + (rows - 1) * gap * sz });
   }
-  // 칸 크기는 사용자가 고른다. 한 줄에 들어가는 칸 수는 화면 폭에 맞춰 정해지고, 원고지는 최대 20칸.
-  const R = SIZE_RANGE[state.mode];
-  let s = clamp(state.cell[state.mode], R[0], R[1]);
-  let cols = Math.min(nb ? 12 : 20, Math.max(nb ? 4 : 8, Math.floor(innerW / s)));
-  s = Math.min(s, innerW / cols);
-  let rows = Math.floor((innerH + gap * s) / (s * (1 + gap)));
-  if (rows < 2) { rows = 2; s = Math.min(s, innerH / (2 + gap)); }
-  if (isFull() && state.mode === 'manuscript') { cols = 20; rows = 10; s = Math.min(innerW / 20, innerH / (10 + 9 * gap)); }   // 전체 화면: 200자 원고지(20칸×10줄)
-  Object.assign(L, {
-    nb, vert: false, free: false, lined: false, plain: false, m, headH, footH, gap, cols, rows, s,
-    gx: m, gy: m + headH,
-    gridW: cols * s, gridH: rows * s + (rows - 1) * gap * s
-  });
-  L.w = Math.round(L.gridW + 2 * m);
-  L.h = Math.round(L.gridH + 2 * m + headH + footH);
-  L.left = Math.round((vw - L.w) / 2);
-  L.top = top0 + Math.round((vh - L.h) / 2);
-  L.penR = clamp(.75 + s * .012, 1.2, 2.1);   // 연필 반지름(화면 px): 칸이 클수록 조금 굵게
-  L.eraserR = clamp(s * .095, 5.5, 11);
+  O.gx = O.m; O.gy = O.m + headH;
+  O.w = Math.round(O.gridW + 2 * O.m); O.h = Math.round(O.gridH + 2 * O.m + headH + footH);
+  O.left = Math.round((vw - O.w) / 2); O.top = Math.round((vh - O.h) / 2);
+  O.penR = clamp(.75 + (free ? 40 : O.s) * .012, 1.2, 2.1); O.eraserR = clamp((free ? 40 : O.s) * .095, 5.5, 11);
+  return O;
+}
+function computeLayout(){
+  const top0 = copyH();   // 필사 중이면 위쪽은 시 칸 자리
+  const dw = desk.clientWidth, dh = desk.clientHeight;
+  const land = state.orient !== 'port', bh = isFull() ? 0 : 60, lng = Math.max(innerWidth, innerHeight), sht = Math.min(innerWidth, innerHeight);   // 화면을 돌려도 같은 값
+  let F;
+  if (isFull() && (state.mode === 'manuscript' || state.mode === 'vmanuscript')) {   // 전체 화면 원고지: 가로형 200자(20칸×10줄), 세로형 400자(20칸×20줄)
+    const n = land ? 10 : 20;
+    F = state.mode === 'manuscript' ? { cols: 20, rows: n, gw: 20, gh: n + (n - 1) * .40 } : { cols: n, rows: 20, gw: n + (n - 1) * .3, gh: 20 };
+  } else {
+    const V = layoutCore(land ? lng : sht, (land ? sht : lng) - bh, null);   // 고른 용지 방향의 가상 종이
+    F = { cols: V.cols, rows: V.rows, gw: V.gridW / V.s, gh: V.gridH / V.s, sMax: V.s };
+  }
+  const A = layoutCore(dw, dh - top0, F);
+  for (const k in L) delete L[k];
+  Object.assign(L, A); L.top += top0; L.o = state.orient;
 }
 function applyLayout(){
   computeLayout();
@@ -1965,7 +1984,7 @@ async function loadBooks(){
 }
 function bookSave(){
   if (!Book.ready || !bookOn()) return;
-  const p = curPage(), d = curBook(); p.strokes = state.strokes; p.t = d.t = Date.now();
+  const p = curPage(), d = curBook(); p.strokes = state.strokes; p.t = d.t = Date.now(); if (p.strokes.length && !p.o) p.o = state.orient;
   const m = state.mode; clearTimeout(Book.t);
   const save = () => { if (active) { Book.t = setTimeout(save, 600); return; } IDB.set(m, Book[m]); };   // 쓰는 중에는 미뤄 그리기를 멈추지 않게
   Book.t = setTimeout(save, 1200);
@@ -1974,6 +1993,9 @@ function bookFlush(){ if (!Book.ready) return; clearTimeout(Book.t); for (const 
 window.addEventListener('pagehide', bookFlush);
 document.addEventListener('visibilitychange', () => { if (document.hidden) bookFlush(); });
 function showPage(){
+  { const o = curPage().o || state.orient;   // 장마다 용지 방향을 기억한다(가로형으로 쓴 장은 가로형으로)
+    if (o !== state.orient) { state.orient = o; store.set('orient', o); setKindUI(); } }
+  if (L.o !== state.orient) applyLayout();
   state.strokes = curPage().strokes; dust.length = 0; crumbs.length = 0;
   if (typeof app !== 'undefined' && app.onNewSheet) app.onNewSheet();
   stampPaper(); redrawInk(); renderFx(); updatePageNo();
@@ -2535,19 +2557,36 @@ $('#newsheet').addEventListener('click', () => (bookOn() && Book.ready) ? newPag
         e.stopPropagation(); m.classList.remove('open');
         if (k === state.mode) return;
         state.mode = k; store.set('mode', k); setKindUI(); setSizeUI();
-        if (k === 'vmanuscript' && innerWidth > innerHeight) setTimeout(() => toast('태블릿을 세로로 돌리면 한 줄 20칸 세로 원고지가 돼요'), 1600);
+        if (k === 'vmanuscript' && state.orient !== 'port') setTimeout(() => toast('용지를 세로형으로 고르면 한 줄 20칸 세로 원고지가 돼요'), 1600);
         const msg = `${KINDS[k].name}${KINDS[k].group === '공책' ? '을 폈어요' : '를 꺼냈어요'}`;
         (bookOn() && Book.ready) ? switchBook(msg) : newSheet(msg);
       });
       m.appendChild(b);
     }
   }
+  const h = document.createElement('h6'); h.textContent = '용지 방향'; m.appendChild(h);
+  const seg = document.createElement('div'); seg.className = 'orient';
+  for (const [o, nm] of [['land', '가로형'], ['port', '세로형']]) {
+    const b = document.createElement('button'); b.dataset.orient = o;
+    b.innerHTML = (o === 'land' ? '<svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="1.5" fill="#fbf7ec" stroke="#b9ab8e" stroke-width="1.2"/></svg>' : '<svg viewBox="0 0 24 24"><rect x="6" y="3" width="12" height="18" rx="1.5" fill="#fbf7ec" stroke="#b9ab8e" stroke-width="1.2"/></svg>') + '<span>' + nm + '</span>';
+    b.addEventListener('click', e => {
+      e.stopPropagation(); m.classList.remove('open'); if (state.orient === o) return;
+      const book = bookOn() && Book.ready, used = state.strokes.length > 0, msg = `${nm} 용지 · 태블릿을 돌려도 칸 수는 그대로예요`;
+      if (book && used) { curPage().o = curPage().o || state.orient; state.orient = o; store.set('orient', o); setKindUI(); newPage(); toast(`글씨가 있어서 새 장을 ${nm}으로 폈어요`); return; }   // 쓴 장은 그 방향 그대로 두고 새 장을
+      state.orient = o; store.set('orient', o); setKindUI();
+      if (book) { curPage().o = o; applyLayout(); toast(msg); }
+      else if (used) newSheet(msg); else { applyLayout(); toast(msg); }
+    });
+    seg.appendChild(b);
+  }
+  m.appendChild(seg);
   $('#kindBtn').addEventListener('click', e => { e.stopPropagation(); m.classList.toggle('open'); $('#penMenu').classList.remove('open'); $('#erMenu').classList.remove('open'); });
   document.addEventListener('pointerdown', e => { if (!e.target.closest('.kindwrap')) m.classList.remove('open'); });
 })();
 function setKindUI(){
   $('#kindIcon').innerHTML = KIND_ICON(state.mode); $('#kindName').textContent = KINDS[state.mode].name;
-  document.querySelectorAll('#kindMenu button').forEach(b => b.classList.toggle('on', b.dataset.kind === state.mode));
+  document.querySelectorAll('#kindMenu button[data-kind]').forEach(b => b.classList.toggle('on', b.dataset.kind === state.mode));
+  document.querySelectorAll('#kindMenu button[data-orient]').forEach(b => b.classList.toggle('on', b.dataset.orient === state.orient));
   const sz = document.querySelector('.size'); if (sz) { sz.style.visibility = state.mode === 'plain' ? 'hidden' : ''; const l = sz.querySelector('span.l'); if (l) l.textContent = state.mode === 'lined' ? '줄 간격' : '칸 크기'; }
 }
 setKindUI();
@@ -2720,9 +2759,11 @@ $('#fsBtn').addEventListener('click', () => {
     }
   } catch (e) { toast('전체 화면을 열지 못했어요. 공유 → 홈 화면에 추가로 열어 보세요'); }
 });
-for (const t of ['fullscreenchange', 'webkitfullscreenchange']) document.addEventListener(t, () => { setFsUI(); applyLayout(); if (isFull() && (state.mode === 'manuscript' || state.mode === 'vmanuscript')) toast('200자 원고지(20칸 × 10줄)'); });
+$('#fsHandle').addEventListener('click', e => { e.stopPropagation(); document.body.classList.toggle('showbar'); });
+sheet.addEventListener('pointerdown', () => document.body.classList.remove('showbar'), true);   // 종이에 쓰기 시작하면 도구 막대는 다시 숨는다
+for (const t of ['fullscreenchange', 'webkitfullscreenchange']) document.addEventListener(t, () => { document.body.classList.toggle('full', isFull()); document.body.classList.remove('showbar'); setFsUI(); applyLayout(); if (isFull() && (state.mode === 'manuscript' || state.mode === 'vmanuscript')) toast(state.orient === 'port' ? '400자 원고지(20칸 × 20줄) · 도구는 오른쪽 아래 단추' : '200자 원고지(20칸 × 10줄) · 도구는 오른쪽 아래 단추'); });
 if (window.navigator.standalone || matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches) $('#fsBtn').style.display = 'none';   // 홈 화면 앱으로 열면 이미 주소창이 없다
-window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { applyLayout(); const pt = innerHeight > innerWidth; if (pt !== wasPortrait && state.mode === 'vmanuscript') toast(pt ? '세로로 들었어요 · 한 줄 20칸' : '가로로 들었어요 · 세로로 들면 한 줄 20칸'); wasPortrait = pt; }, 120); });
+window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { applyLayout(); const pt = innerHeight > innerWidth; wasPortrait = pt; }, 120); });
 
 function setAdvUI(){
   $('#advSharp').value = adv.sharp; $('#advSharpV').textContent = adv.sharp;
