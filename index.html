@@ -71,6 +71,29 @@
   #paperLabel{display:none}
   @media (max-width:1320px){ .status{display:none} }
   #desk{position:absolute;left:0;right:0;top:60px;bottom:0}
+  /* 필사: 원고지 위의 시 칸 */
+  #copyBox{position:absolute;z-index:3;display:none;flex-direction:column;background:#fffdf7;border-radius:6px;
+    box-shadow:0 1px 2px rgba(60,45,20,.12),0 6px 18px -8px rgba(60,45,20,.28)}
+  #copyBox.show{display:flex}
+  #copyBox .hd{display:flex;align-items:center;gap:4px;padding:4px 6px 0 10px}
+  #copyPick{height:38px;padding:0 8px;gap:8px;font-family:"Nanum Myeongjo","Noto Serif KR","AppleMyungjo","Batang",serif}
+  #copyPick b{font-size:17px;font-weight:700;letter-spacing:-.01em} #copyPick small{font-size:14px;color:#7d7363}
+  #copyClose{margin-left:auto;height:38px;min-width:38px;padding:0 8px;color:#8a8072}
+  #copyText{flex:1;overflow:auto;padding:4px 22px 14px;white-space:pre-wrap;word-break:keep-all;overflow-wrap:break-word;-webkit-overflow-scrolling:touch;
+    font-family:"Nanum Myeongjo","Noto Serif KR","AppleMyungjo","Batang",serif;font-size:18px;line-height:1.85;color:#2f2b25;letter-spacing:.01em}
+  #copyMenu{position:absolute;top:44px;left:8px;z-index:20;width:min(360px,calc(100vw - 32px));max-height:min(560px,calc(100vh - 140px));overflow:auto;padding:6px;
+    background:#fffdf8;border-radius:14px;box-shadow:0 12px 32px -10px rgba(50,40,20,.45),0 0 0 1px rgba(60,45,20,.08);display:none}
+  #copyMenu.open{display:block}
+  #copyBtn.on{background:var(--pencil-soft);box-shadow:inset 0 -3px 0 var(--pencil)}
+  #copyMenu .it{width:100%;height:auto;min-height:48px;justify-content:space-between;gap:10px;padding:8px 12px;border-radius:10px;font-family:"Nanum Myeongjo","Noto Serif KR","AppleMyungjo","Batang",serif}
+  #copyMenu .it b{font-size:16px;font-weight:700;white-space:normal;text-align:left} #copyMenu .it small{color:#8a8072;font-size:13px;flex:none}
+  #copyMenu .it.on{background:var(--pencil-soft)}
+  #copyMenu .mine{display:flex;flex-direction:column;gap:6px;margin-top:6px;padding:10px 6px 4px;border-top:1px solid #eee6d8}
+  #copyMenu .mine .lb{color:#8a8072;font-size:13px}
+  #copyMenu .mine input,#copyMenu .mine textarea{width:100%;box-sizing:border-box;border:1px solid #e2dccf;border-radius:10px;background:#fff;font-family:inherit;font-size:16px;line-height:1.5;padding:8px 10px;color:inherit}
+  #copyMenu .mine textarea{height:120px;resize:vertical}
+  #copyMenu .mine .pri{height:42px;justify-content:center;background:#c84c3a;color:#fff}
+
   #sheet{position:absolute;border-radius:2px;
     box-shadow:0 1px 0 rgba(255,255,255,.6) inset,0 1px 2px rgba(70,50,20,.18),0 18px 34px -18px rgba(70,50,20,.45);
     transition:transform .32s cubic-bezier(.3,.7,.2,1),opacity .32s}
@@ -151,7 +174,8 @@
   <div class="group">
     <button id="undo" title="되돌리기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 7L5 11l4 4"/><path d="M5 11h9a5 5 0 010 10h-2"/></svg><span class="l">되돌리기</span></button>
     <button id="brush" title="지우개 가루 털기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 15c3-1 6-4 8-8"/><path d="M8 18c3-1 7-4 9-8"/><path d="M13 20c2-1 5-3 7-6"/></svg><span class="l">털기</span></button>
-    <button id="newsheet" title="새 종이"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/><path d="M12 11v6M9 14h6" stroke-linecap="round"/></svg><span class="l">새 종이</span></button><button id="tearBtn" title="이 장 찢기" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"><path d="M6 3h12v18H6z"/><path d="M11 3l-1.5 3 2 2.5-2 3 2 2.5-2 3 1.5 4"/></svg><span class="l">찢기</span></button><button id="save" title="원고지 저장"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11"/><path d="M7.5 10.5L12 15l4.5-4.5"/><path d="M5 19h14"/></svg><span class="l">저장</span></button>
+    <button id="newsheet" title="새 종이"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/><path d="M12 11v6M9 14h6" stroke-linecap="round"/></svg><span class="l">새 종이</span></button>
+    <button id="copyBtn" title="필사"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"><path d="M12 6.5C10 5 7 4.5 3.5 5v13c3.5-.5 6.5 0 8.5 1.5 2-1.5 5-2 8.5-1.5V5C17 4.5 14 5 12 6.5z"/><path d="M12 6.5v13"/></svg><span class="l">필사</span></button><button id="tearBtn" title="이 장 찢기" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"><path d="M6 3h12v18H6z"/><path d="M11 3l-1.5 3 2 2.5-2 3 2 2.5-2 3 1.5 4"/></svg><span class="l">찢기</span></button><button id="save" title="원고지 저장"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11"/><path d="M7.5 10.5L12 15l4.5-4.5"/><path d="M5 19h14"/></svg><span class="l">저장</span></button>
   </div>
   <label class="size" title="칸 크기"><span class="l">칸 크기</span><input id="cellSize" type="range" step="1"><em id="cellInfo"></em></label>
   <div class="spacer"></div>
@@ -170,7 +194,7 @@
       </div></span>
   </div>
 </header>
-<main id="desk"><div id="sheet"><canvas id="paper"></canvas><canvas id="ink"></canvas><canvas id="fx"></canvas></div></main>
+<main id="desk"><div id="copyBox"><div class="hd"><button id="copyPick" title="시 고르기"><b id="copyTitle"></b><small id="copyBy"></small><svg class="caret" viewBox="0 0 10 10"><path d="M2 4l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></button><button id="copyClose" aria-label="필사 닫기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div><div id="copyText"></div><div id="copyMenu"></div></div><div id="sheet"><canvas id="paper"></canvas><canvas id="ink"></canvas><canvas id="fx"></canvas></div></main>
 <div id="toast"></div>
 
 <script>
@@ -320,8 +344,225 @@ const KIND_ICON = k => {   // 종이 모양 그림(작게)
   if (k === 'plain') g = '<path d="M27 5h6" stroke="#b8ad97" stroke-width=".6"/>';
   return `<svg viewBox="0 0 38 28">${P}${g}</svg>`;
 };
+/* ───────────── 필사: 원고지 위에 시를 띄워 두고 따라 쓴다 ─────────────
+   1929년 이전에 발표된 시만 담았다(저작권이 끝난 시). 원문(위키문헌 영인본 옮김)을 보고 오늘날 맞춤법으로 옮겼다.
+   다른 시는 「직접 넣기」로 넣는다(이 기기에만 저장). */
+const POEMS = [
+  { id: 'jindallae', title: '진달래꽃', by: '김소월', year: '1922', text:
+`나 보기가 역겨워
+가실 때에는
+말없이 고이 보내 드리우리다
+
+영변에 약산
+진달래꽃
+아름 따다 가실 길에 뿌리우리다
+
+가시는 걸음걸음
+놓인 그 꽃을
+사뿐히 즈려밟고 가시옵소서
+
+나 보기가 역겨워
+가실 때에는
+죽어도 아니 눈물 흘리우리다` },
+  { id: 'sanyuhwa', title: '산유화', by: '김소월', year: '1925', text:
+`산에는 꽃 피네
+꽃이 피네
+갈 봄 여름 없이
+꽃이 피네
+
+산에
+산에
+피는 꽃은
+저만치 혼자서 피어 있네
+
+산에서 우는 작은 새요
+꽃이 좋아
+산에서
+사노라네
+
+산에는 꽃 지네
+꽃이 지네
+갈 봄 여름 없이
+꽃이 지네` },
+  { id: 'meonhuil', title: '먼 후일', by: '김소월', year: '1920', text:
+`먼 훗날 당신이 찾으시면
+그때에 내 말이 「잊었노라」
+
+당신이 속으로 나무라면
+「무척 그리다가 잊었노라」
+
+그래도 당신이 나무라면
+「믿기지 않아서 잊었노라」
+
+오늘도 어제도 아니 잊고
+먼 훗날 그때에 「잊었노라」` },
+  { id: 'eomma', title: '엄마야 누나야', by: '김소월', year: '1922', text:
+`엄마야 누나야 강변 살자
+뜰에는 반짝이는 금모래 빛
+뒷문 밖에는 갈잎의 노래
+엄마야 누나야 강변 살자` },
+  { id: 'chimmuk', title: '님의 침묵', by: '한용운', year: '1926', text:
+`님은 갔습니다 아아 사랑하는 나의 님은 갔습니다
+푸른 산빛을 깨치고 단풍나무 숲을 향하여 난 작은 길을 걸어서 차마 떨치고 갔습니다
+황금의 꽃같이 굳고 빛나던 옛 맹세는 차디찬 티끌이 되어서 한숨의 미풍에 날아갔습니다
+날카로운 첫 「키스」의 추억은 나의 운명의 지침을 돌려놓고 뒷걸음쳐서 사라졌습니다
+나는 향기로운 님의 말소리에 귀먹고 꽃다운 님의 얼굴에 눈멀었습니다
+사랑도 사람의 일이라 만날 때에 미리 떠날 것을 염려하고 경계하지 아니한 것은 아니지만 이별은 뜻밖의 일이 되고 놀란 가슴은 새로운 슬픔에 터집니다
+그러나 이별을 쓸데없는 눈물의 원천을 만들고 마는 것은 스스로 사랑을 깨치는 것인 줄 아는 까닭에 걷잡을 수 없는 슬픔의 힘을 옮겨서 새 희망의 정수박이에 들어부었습니다
+우리는 만날 때에 떠날 것을 염려하는 것과 같이 떠날 때에 다시 만날 것을 믿습니다
+아아 님은 갔지마는 나는 님을 보내지 아니하였습니다
+제 곡조를 못 이기는 사랑의 노래는 님의 침묵을 휩싸고 돕니다` },
+  { id: 'alsu', title: '알 수 없어요', by: '한용운', year: '1926', text:
+`바람도 없는 공중에 수직의 파문을 내이며 고요히 떨어지는 오동잎은 누구의 발자취입니까
+지리한 장마 끝에 서풍에 몰려가는 무서운 검은 구름의 터진 틈으로 언뜻언뜻 보이는 푸른 하늘은 누구의 얼굴입니까
+꽃도 없는 깊은 나무에 푸른 이끼를 거쳐서 옛 탑 위의 고요한 하늘을 스치는 알 수 없는 향기는 누구의 입김입니까
+근원은 알지도 못할 곳에서 나서 돌부리를 울리고 가늘게 흐르는 작은 시내는 굽이굽이 누구의 노래입니까
+연꽃 같은 발꿈치로 가없는 바다를 밟고 옥 같은 손으로 끝없는 하늘을 만지면서 떨어지는 날을 곱게 단장하는 저녁놀은 누구의 시입니까
+타고 남은 재가 다시 기름이 됩니다 그칠 줄을 모르고 타는 나의 가슴은 누구의 밤을 지키는 약한 등불입니까` },
+  { id: 'narutbae', title: '나룻배와 행인', by: '한용운', year: '1926', text:
+`나는 나룻배
+당신은 행인
+
+당신은 흙발로 나를 짓밟습니다
+나는 당신을 안고 물을 건너갑니다
+나는 당신을 안으면 깊으나 얕으나 급한 여울이나 건너갑니다
+
+만일 당신이 아니 오시면 나는 바람을 쐬고 눈비를 맞으며 밤에서 낮까지 당신을 기다리고 있습니다
+당신은 물만 건너면 나를 돌아보지도 않고 가십니다그려
+
+그러나 당신이 언제든지 오실 줄만은 알아요
+나는 당신을 기다리면서 날마다 날마다 낡아 갑니다
+
+나는 나룻배
+당신은 행인` },
+  { id: 'hyangsu', title: '향수', by: '정지용', year: '1927', text:
+`넓은 벌 동쪽 끝으로
+옛이야기 지줄대는 실개천이 회돌아 나가고,
+얼룩백이 황소가
+해설피 금빛 게으른 울음을 우는 곳,
+
+―그곳이 차마 꿈엔들 잊힐 리야.
+
+질화로에 재가 식어지면
+비인 밭에 밤바람 소리 말을 달리고,
+엷은 졸음에 겨운 늙으신 아버지가
+짚베개를 돋아 고이시는 곳,
+
+―그곳이 차마 꿈엔들 잊힐 리야.
+
+흙에서 자란 내 마음
+파아란 하늘빛이 그리워
+함부로 쏜 화살을 찾으려
+풀섶 이슬에 함추름 휘적시던 곳,
+
+―그곳이 차마 꿈엔들 잊힐 리야.
+
+전설 바다에 춤추는 밤물결 같은
+검은 귀밑머리 날리는 어린 누이와
+아무렇지도 않고 예쁠 것도 없는
+사철 발 벗은 아내가
+따가운 햇살을 등에 지고 이삭 줍던 곳,
+
+―그곳이 차마 꿈엔들 잊힐 리야.
+
+하늘에는 성근 별
+알 수도 없는 모래성으로 발을 옮기고,
+서리 까마귀 우지짖고 지나가는 초라한 지붕,
+흐릿한 불빛에 돌아앉아 도란도란거리는 곳,
+
+―그곳이 차마 꿈엔들 잊힐 리야.` },
+  { id: 'ppaeatgin', title: '빼앗긴 들에도 봄은 오는가', by: '이상화', year: '1926', text:
+`지금은 남의 땅―빼앗긴 들에도 봄은 오는가?
+
+나는 온몸에 햇살을 받고
+푸른 하늘 푸른 들이 맞붙은 곳으로
+가르마 같은 논길을 따라 꿈속을 가듯 걸어만 간다.
+
+입술을 다문 하늘아 들아
+내 맘에는 내 혼자 온 것 같지를 않구나
+네가 끌었느냐 누가 부르더냐 답답워라 말을 해 다오.
+
+바람은 내 귀에 속삭이며
+한 자국도 섰지 마라 옷자락을 흔들고
+종조리는 울타리 너머 아씨같이 구름 뒤에서 반갑다 웃네.
+
+고맙게 잘 자란 보리밭아
+간밤 자정이 넘어 내리는 고운 비로
+너는 삼단 같은 머리를 감았구나 내 머리조차 가뿐하다.
+
+혼자라도 가쁘게나 가자
+마른 논을 안고 도는 착한 도랑이
+젖먹이 달래는 노래를 하고 제 혼자 어깨춤만 추고 가네.
+
+나비 제비야 깝치지 마라
+맨드라미 들마꽃에도 인사를 해야지
+아주까리기름을 바른 이가 지심 매던 그 들이라 다 보고 싶다.
+
+내 손에 호미를 쥐어 다오
+살진 젖가슴과 같은 부드러운 이 흙을
+발목이 시도록 밟아도 보고 좋은 땀조차 흘리고 싶다.
+
+강가에 나온 아이와 같이
+짬도 모르고 끝도 없이 닫는 내 혼아
+무엇을 찾느냐 어디로 가느냐 우스웁다 답을 하려무나.
+
+나는 온몸에 풋내를 띠고
+푸른 웃음 푸른 설움이 어우러진 사이로
+다리를 절며 하루를 걷는다 아마도 봄 신령이 지폈나 보다.
+그러나 지금은―들을 빼앗겨 봄조차 빼앗기겠네.` }
+];
+const Copy = Object.assign({ on: false, id: 'jindallae' }, store.get('copy', {}));
+let copyMine = store.get('copyMine', null);   // 직접 넣은 시 { title, by, text }
+const copyPoem = () => Copy.id === 'mine' && copyMine ? Object.assign({ id: 'mine' }, copyMine) : (POEMS.find(p => p.id === Copy.id) || POEMS[0]);
+const copyH = () => Copy.on ? Math.round(clamp(desk.clientHeight * .3, 120, 290)) : 0;   // 시 칸 높이(원고지는 그 아래 남은 자리에)
+function copySave(){ store.set('copy', { on: Copy.on, id: Copy.id }); }
+function copyRender(){
+  const box = $('#copyBox'), p = copyPoem();
+  box.classList.toggle('show', Copy.on);
+  $('#copyBtn').classList.toggle('on', Copy.on);
+  $('#copyTitle').textContent = p.title || '제목 없음';
+  $('#copyBy').textContent = p.by || '';
+  const t = $('#copyText'); t.textContent = p.text || ''; t.scrollTop = 0;
+}
+function copyPlace(){   // 원고지와 같은 폭으로, 원고지 바로 위에
+  if (!Copy.on) return;
+  Object.assign($('#copyBox').style, { left: L.left + 'px', width: L.w + 'px', top: '10px', height: (copyH() - 8) + 'px' });
+}
+function copyMenuBuild(){
+  const m = $('#copyMenu'); m.textContent = '';
+  const add = (id, title, sub) => {
+    const b = document.createElement('button'); b.className = 'it' + (Copy.id === id ? ' on' : '');
+    const tt = document.createElement('b'); tt.textContent = title; const s = document.createElement('small'); s.textContent = sub;
+    b.append(tt, s); b.addEventListener('click', () => { Copy.id = id; copySave(); copyRender(); m.classList.remove('open'); });
+    m.append(b);
+  };
+  for (const p of POEMS) add(p.id, p.title, `${p.by} · ${p.year}`);
+  if (copyMine) add('mine', copyMine.title || '내가 넣은 시', copyMine.by || '직접 넣음');
+  const f = document.createElement('div'); f.className = 'mine';
+  const ti = document.createElement('input'); ti.placeholder = '제목'; ti.value = copyMine ? copyMine.title : '';
+  const by = document.createElement('input'); by.placeholder = '지은이'; by.value = copyMine ? copyMine.by : '';
+  const tx = document.createElement('textarea'); tx.placeholder = '따라 쓸 글을 붙여 넣으세요'; tx.value = copyMine ? copyMine.text : '';
+  const ok = document.createElement('button'); ok.className = 'pri'; ok.textContent = '이 글로 필사하기';
+  ok.addEventListener('click', () => {
+    const text = tx.value.replace(/\r/g, '').replace(/\s+$/, '');
+    if (!text.trim()) { toast('따라 쓸 글을 넣어 주세요'); return; }
+    copyMine = { title: ti.value.trim(), by: by.value.trim(), text }; store.set('copyMine', copyMine);
+    Copy.id = 'mine'; copySave(); copyRender(); m.classList.remove('open');
+  });
+  const lb = document.createElement('small'); lb.className = 'lb'; lb.textContent = '직접 넣기 (이 기기에만 저장돼요)';
+  f.append(lb, ti, by, tx, ok); m.append(f);
+}
+$('#copyBtn').addEventListener('click', () => {
+  Copy.on = !Copy.on; copySave(); copyRender(); applyLayout(); copyPlace();
+  toast(Copy.on ? '필사: 위의 시를 보고 따라 써 보세요' : '필사를 닫았어요');
+});
+$('#copyClose').addEventListener('click', () => { Copy.on = false; copySave(); copyRender(); applyLayout(); });
+$('#copyPick').addEventListener('click', e => { e.stopPropagation(); const m = $('#copyMenu'); if (m.classList.toggle('open')) copyMenuBuild(); });
+document.addEventListener('pointerdown', e => { const m = $('#copyMenu'); if (m.classList.contains('open') && !e.target.closest('#copyMenu,#copyPick')) m.classList.remove('open'); });
+copyRender();
 function computeLayout(){
-  const vw = desk.clientWidth, vh = desk.clientHeight;
+  const top0 = copyH();   // 필사 중이면 위쪽은 시 칸 자리
+  const vw = desk.clientWidth, vh = desk.clientHeight - top0;
   const pad = vw < 700 ? 8 : 18;
   const W = vw - pad * 2, H = vh - pad * 2;
   const nb = state.mode === 'notebook', vert = state.mode === 'vmanuscript', lined = state.mode === 'lined', plain = state.mode === 'plain', free = lined || plain;
@@ -342,7 +583,7 @@ function computeLayout(){
       gridW: vert ? cols0 * s0 + (cols0 - 1) * gap * s0 : (free ? innerW : cols0 * s0), gridH: rows0 * s0 });
     if (vert) { L.m = m + 8; L.gx = L.m; L.gy = L.m + headH; }   // 테두리가 칸에서 떨어진 만큼 바깥 여백도
     L.w = Math.round(L.gridW + 2 * L.m); L.h = Math.round(L.gridH + 2 * L.m + headH + footH);
-    L.left = Math.round((vw - L.w) / 2); L.top = Math.round((vh - L.h) / 2);
+    L.left = Math.round((vw - L.w) / 2); L.top = top0 + Math.round((vh - L.h) / 2);
     L.penR = clamp(.75 + (free ? 40 : s0) * .012, 1.2, 2.1); L.eraserR = clamp((free ? 40 : s0) * .095, 5.5, 11);
     return;
   }
@@ -361,7 +602,7 @@ function computeLayout(){
   L.w = Math.round(L.gridW + 2 * m);
   L.h = Math.round(L.gridH + 2 * m + headH + footH);
   L.left = Math.round((vw - L.w) / 2);
-  L.top = Math.round((vh - L.h) / 2);
+  L.top = top0 + Math.round((vh - L.h) / 2);
   L.penR = clamp(.75 + s * .012, 1.2, 2.1);   // 연필 반지름(화면 px): 칸이 클수록 조금 굵게
   L.eraserR = clamp(s * .095, 5.5, 11);
 }
@@ -374,6 +615,7 @@ function applyLayout(){
   drawPaper();
   redrawInk();
   fxBox.full = true; renderFx();
+  copyPlace();
 }
 
 /* ───────────── 종이와 칸 ───────────── */
@@ -2075,7 +2317,7 @@ function edgeZone(x, y){
 }
 document.addEventListener('pointerdown', ev => {
   if (!bookOn() || !Book.ready || flip || tear || swipe || active) return;
-  if (ev.target.closest && ev.target.closest('#bar,#penMenu,#docs,#pageNo,#home,#result,#pop,#sharpen,.lbl')) return;
+  if (ev.target.closest && ev.target.closest('#bar,#penMenu,#docs,#pageNo,#home,#result,#pop,#sharpen,.lbl,#copyBox')) return;
   const z = edgeZone(ev.clientX, ev.clientY); if (!z) return;
   if (ev.pointerType === 'pen' && z.inside) return;    // 펜은 종이 안쪽에서는 글씨만
   sheetRect = sheet.getBoundingClientRect(); ensureAudio();
