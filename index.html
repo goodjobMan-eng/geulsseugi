@@ -161,6 +161,7 @@
     <button id="sound" title="연필 소리"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10v4h3l5 4V6L7 10z"/><path id="w1" d="M15.5 9.5a3.5 3.5 0 010 5"/><path id="w2" d="M18 7a7 7 0 010 10"/></svg><span class="l" id="soundLabel">작게</span></button>
     <span style="position:relative"><button id="advBtn" title="고급 설정"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg><span class="l">고급 설정</span></button>
       <div id="adv"><b>고급 설정</b>
+        <label>연필 깎은 정도 <em id="advSharpV"></em><input id="advSharp" type="range" min="0" max="100" step="1"><small><span>뭉툭 0</span><span>100 뾰족</span></small></label>
         <label>볼펜 심 굵기 <em id="advBallV"></em><input id="advBall" type="range" min="0.3" max="1.6" step="0.1"></label>
         <label>사인펜 촉 굵기 <em id="advSignV"></em><input id="advSign" type="range" min="0.3" max="2.5" step="0.1"></label>
         <label>만년필 촉 <span class="segs" id="advNib"><button data-n="EF">EF</button><button data-n="F">F</button><button data-n="M">M</button><button data-n="B">B</button></span></label>
@@ -276,12 +277,12 @@ for (const k in PENS) {
   P.pat = pattern(ictx, textureCanvas(fn), GRAIN);
 }
 if (!PENS[state.pen]) state.pen = 'hb';
-/* 고급 설정(성인용): 펜 굵기를 숫자로 직접 정한다 */
-const ADV0 = { ball: .7, sign: 1.0, nib: 'F', lite: true };
+/* 고급 설정(성인용): 연필 깎은 정도와 펜 굵기를 숫자로 직접 정한다 */
+const ADV0 = { sharp: 90, ball: .7, sign: 1.0, nib: 'F', lite: true };
 const adv = Object.assign({}, ADV0, store.get('adv', {}));
 if (!adv.liteSet) adv.lite = true;   // 가벼운 모드는 기본으로 켬 — 직접 끈 경우만 끔을 지킨다
 const NIB = { EF: .72, F: .9, M: 1.05, B: 1.3 };
-function advBlunt(){ return .1; }   // 연필 깎은 정도는 늘 뾰족하게(조절·닳기 기능은 물리엔진_보관 판에)
+function advBlunt(){ return 1 - adv.sharp / 100; }
 function penK(tool){ const k = (PENS[tool] || {}).kind; return k === 'ball' ? adv.ball / .7 : k === 'sign' ? adv.sign / 1.0 : k === 'fountain' ? (NIB[adv.nib] || 1.05) / 1.05 : 1; }   // 이미 쓴 획은 그때 굵기 그대로
 function applyAdv(){   // 가벼운 모드: 화면 선명도를 낮추고, 연필 가루·눌림·덧댐 그림자를 끄고, 연필 소리를 녹음 반복으로
   document.body.classList.toggle('litemode', !!adv.lite);
@@ -2450,6 +2451,7 @@ let wasPortrait = innerHeight > innerWidth;
 window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { applyLayout(); const pt = innerHeight > innerWidth; if (pt !== wasPortrait && state.mode === 'vmanuscript') toast(pt ? '세로로 들었어요 · 한 줄 20칸' : '가로로 들었어요 · 세로로 들면 한 줄 20칸'); wasPortrait = pt; }, 120); });
 
 function setAdvUI(){
+  $('#advSharp').value = adv.sharp; $('#advSharpV').textContent = adv.sharp;
   $('#advBall').value = adv.ball; $('#advBallV').textContent = adv.ball.toFixed(1) + 'mm';
   $('#advSign').value = adv.sign; $('#advSignV').textContent = adv.sign.toFixed(1) + 'mm';
   for (const b of document.querySelectorAll('#advNib button')) b.classList.toggle('on', b.dataset.n === adv.nib);
@@ -2460,6 +2462,7 @@ $('#advBtn').addEventListener('click', e => { e.stopPropagation(); $('#adv').cla
 $('#adv').addEventListener('click', e => e.stopPropagation());
 $('#adv').addEventListener('pointerdown', e => e.stopPropagation());
 document.addEventListener('pointerdown', e => { if (!e.target.closest('#adv,#advBtn')) $('#adv').classList.remove('open'); });
+$('#advSharp').addEventListener('input', e => advSet('sharp', +e.target.value));
 $('#advBall').addEventListener('input', e => advSet('ball', +e.target.value));
 $('#advSign').addEventListener('input', e => advSet('sign', +e.target.value));
 for (const b of document.querySelectorAll('#advNib button')) b.addEventListener('click', () => advSet('nib', b.dataset.n));
