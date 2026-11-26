@@ -62,7 +62,7 @@
   .seg button{height:38px;padding:0 12px;border-radius:9px;font-size:14px;color:var(--ink-soft)}
   .seg button.on{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(60,45,20,.18)}
   .size{display:inline-flex;align-items:center;gap:8px;font-size:14px;color:var(--ink-soft);padding:0 6px;white-space:nowrap}
-  .size input{width:120px;accent-color:#c84c3a;height:28px}
+  .size .seg button{height:34px;padding:0 10px;font-size:13.5px} .size.locked .seg{opacity:.45}
   .size em{font-style:normal;font-size:12.5px;min-width:52px}
   .status{font-size:12.5px;color:var(--ink-soft);padding:0 8px;white-space:nowrap}
   .status b{display:inline-block;width:7px;height:7px;border-radius:50%;background:#c9c0ae;margin-right:6px;vertical-align:1px}
@@ -124,7 +124,7 @@
   #adv canvas.smp{display:block;width:100%;height:26px;margin-top:2px} #adv canvas.smp.tall{height:48px;margin-top:6px}
   #adv .segs button.on{background:#c84c3a;color:#fff} #adv .lite{margin-top:14px;height:34px;width:100%;justify-content:center;background:rgba(60,45,20,.05);border-radius:8px}
   @media (max-width:980px){ button span.l{display:none} #kindName{display:none} }
-  @media (max-width:900px){ .status{display:none} .size input{width:96px} .size span.l{display:none} button{padding:0 8px} #bar{gap:2px;padding:0 6px} }
+  @media (max-width:900px){ .status{display:none} .size span.l{display:none} button{padding:0 8px} #bar{gap:2px;padding:0 6px} }
   #curlCanvas{position:fixed;z-index:4;pointer-events:none;display:none}
   #pageNo{position:fixed;right:14px;bottom:12px;z-index:6;padding:4px 10px;border-radius:999px;font-size:13px;color:rgba(70,58,40,.75);
     background:rgba(255,253,246,.78);box-shadow:0 1px 3px rgba(0,0,0,.08);pointer-events:none;display:none}
@@ -187,7 +187,7 @@
     <button id="newsheet" title="새 종이"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/><path d="M12 11v6M9 14h6" stroke-linecap="round"/></svg><span class="l">새 종이</span></button>
     <button id="copyBtn" title="필사"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"><path d="M12 6.5C10 5 7 4.5 3.5 5v13c3.5-.5 6.5 0 8.5 1.5 2-1.5 5-2 8.5-1.5V5C17 4.5 14 5 12 6.5z"/><path d="M12 6.5v13"/></svg><span class="l">필사</span></button><button id="tearBtn" title="이 장 찢기" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"><path d="M6 3h12v18H6z"/><path d="M11 3l-1.5 3 2 2.5-2 3 2 2.5-2 3 1.5 4"/></svg><span class="l">찢기</span></button><button id="save" title="원고지 저장"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11"/><path d="M7.5 10.5L12 15l4.5-4.5"/><path d="M5 19h14"/></svg><span class="l">저장</span></button>
   </div>
-  <label class="size" title="칸 크기"><span class="l">칸 크기</span><input id="cellSize" type="range" step="1"><em id="cellInfo"></em></label>
+  <span class="size" title="칸 크기"><span class="l">칸 크기</span><span class="seg" id="cellSeg"><button data-z="0">작게</button><button data-z="1">보통</button><button data-z="2">크게</button></span><em id="cellInfo"></em></span>
   <div class="spacer"></div>
   <span id="status" class="status"><b></b>펜을 대 보세요</span>
   <div class="group">
@@ -202,7 +202,7 @@
         <label>만년필 촉 <span class="segs" id="advNib"><button data-n="EF">EF</button><button data-n="F">F</button><button data-n="M">M</button><button data-n="B">B</button></span><canvas class="smp tall" id="smpNib"></canvas></label>
         <label>가벼운 모드 <span class="segs" id="advLite"><button data-v="0">끔</button><button data-v="1">켬</button></span><small><span>느린 기기에서 반응이 빨라져요 · 화면이 조금 덜 선명해요</span></small></label>
         <button id="advReset" class="lite">기본값으로</button>
-        <small style="justify-content:flex-end;margin-top:8px;opacity:.7"><span>판 v19 · 11.26.</span></small>
+        <small style="justify-content:flex-end;margin-top:8px;opacity:.7"><span>판 v20 · 11.26.</span></small>
       </div></span>
   </div>
 </header>
@@ -634,7 +634,7 @@ function computeLayout(){
   }
   const A = layoutCore(dw, dh - top0, F);
   for (const k in L) delete L[k];
-  Object.assign(L, A); L.top += top0; L.o = state.orient;
+  Object.assign(L, A); L.top += top0; L.o = state.orient; L.cs = state.cell[state.mode];
 }
 function applyLayout(){
   computeLayout();
@@ -1987,8 +1987,9 @@ async function loadBooks(){
   if (paperC.width) drawPaper();   // 처음 그린 종이에 찍힌 1~4 번호를 지우고 장 번호 방식으로 다시 그린다
 }
 function bookSave(){
+  try { setSizeUI(); } catch (e) {}   // 글씨가 생기거나 다 지워지면 칸 크기 잠금도 바뀐다
   if (!Book.ready || !bookOn()) return;
-  const p = curPage(), d = curBook(); p.strokes = state.strokes; p.t = d.t = Date.now(); if (p.strokes.length && !p.o) p.o = state.orient;
+  const p = curPage(), d = curBook(); p.strokes = state.strokes; p.t = d.t = Date.now(); if (p.strokes.length && !p.o) p.o = state.orient; if (p.strokes.length && !p.cs) p.cs = state.cell[state.mode];
   const m = state.mode; clearTimeout(Book.t);
   const save = () => { if (active) { Book.t = setTimeout(save, 600); return; } IDB.set(m, Book[m]); };   // 쓰는 중에는 미뤄 그리기를 멈추지 않게
   Book.t = setTimeout(save, 1200);
@@ -1998,11 +1999,13 @@ window.addEventListener('pagehide', bookFlush);
 document.addEventListener('visibilitychange', () => { if (document.hidden) bookFlush(); });
 function showPage(){
   { const o = curPage().o || state.orient;   // 장마다 용지 방향을 기억한다(가로형으로 쓴 장은 가로형으로)
-    if (o !== state.orient) { state.orient = o; store.set('orient', o); setKindUI(); } }
-  if (L.o !== state.orient) applyLayout();
+    if (o !== state.orient) { state.orient = o; store.set('orient', o); setKindUI(); }
+    const cs = curPage().cs; if (cs && cs !== state.cell[state.mode]) { state.cell[state.mode] = cs; store.set('cell', state.cell); } }   // 장마다 칸 크기도 기억
+  if (L.o !== state.orient || L.cs !== state.cell[state.mode]) applyLayout();
   state.strokes = curPage().strokes; dust.length = 0; crumbs.length = 0;
   if (typeof app !== 'undefined' && app.onNewSheet) app.onNewSheet();
   stampPaper(); redrawInk(); renderFx(); updatePageNo();
+  try { setSizeUI(); } catch (e) {}
 }
 // 장 번호: 원고지 오른쪽 위에 「( 2 / 5 )」 — 이 장이 몇째 장인지 / 모두 몇 장인지
 const paperBaseC = document.createElement('canvas');
@@ -2543,7 +2546,7 @@ function newSheet(msg){
   setTimeout(() => {
     state.strokes = []; dust.length = 0; crumbs.length = 0;
     sheet.classList.remove('out'); sheet.classList.add('in');
-    applyLayout();
+    applyLayout(); try { setSizeUI(); } catch (e) {}
     requestAnimationFrame(() => requestAnimationFrame(() => sheet.classList.remove('in')));
     if (msg) toast(msg);
   }, 300);
@@ -2730,14 +2733,20 @@ document.addEventListener('visibilitychange', () => {
   if (!Snd.ac) return;
   if (document.hidden) Snd.ac.suspend(); else if (state.vol) Snd.ac.resume();
 });
+/* 칸 크기는 정해진 세 규격. 글씨를 쓴 장은 바꿀 수 없다(바꾸면 끝쪽 글씨가 잘리므로) — 새 장에서 고른다 */
+const CELL_SIZES = { manuscript: [40, 52, 64], vmanuscript: [40, 52, 64], notebook: [72, 96, 120], lined: [30, 38, 48], plain: [40, 40, 40] };
+const sizeIdx = () => { const a = CELL_SIZES[state.mode], v = state.cell[state.mode]; let k = 1, d = 1e9; a.forEach((x, i) => { if (Math.abs(x - v) < d) { d = Math.abs(x - v); k = i; } }); return k; };
 function setSizeUI(){
-  const R = SIZE_RANGE[state.mode], el = $('#cellSize');
-  el.min = R[0]; el.max = R[1]; el.value = clamp(state.cell[state.mode] || R[0], R[0], R[1]);
+  const k = sizeIdx(), lock = state.strokes.length > 0;
+  document.querySelectorAll('#cellSeg button').forEach(b => b.classList.toggle('on', +b.dataset.z === k));
+  const sz = document.querySelector('.size'); if (sz) sz.classList.toggle('locked', lock);
 }
-let szT = 0;
-$('#cellSize').addEventListener('input', e => {
-  state.cell[state.mode] = +e.target.value; store.set('cell', state.cell);
-  cancelAnimationFrame(szT); szT = requestAnimationFrame(applyLayout);  // 쓴 글씨는 칸에 맞춰 함께 커지고 작아진다
+for (const b of document.querySelectorAll('#cellSeg button')) b.addEventListener('click', () => {
+  const z = +b.dataset.z, v = CELL_SIZES[state.mode][z];
+  if (state.strokes.length) { if (z !== sizeIdx()) toast('글씨를 쓴 장은 칸 크기를 바꿀 수 없어요 · 새 장에서 골라 주세요'); return; }
+  state.cell[state.mode] = v; store.set('cell', state.cell);
+  if (bookOn() && Book.ready) curPage().cs = v;
+  setSizeUI(); applyLayout();
 });
 function setPaperUI(){
   $('#paperDot').style.background = PAPERS[state.paper].base;
