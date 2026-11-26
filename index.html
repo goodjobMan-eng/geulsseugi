@@ -194,7 +194,7 @@
         <label>가벼운 모드 <span class="segs" id="advLite"><button data-v="0">끔</button><button data-v="1">켬</button></span><small><span>느린 기기에서 반응이 빨라져요 · 화면이 조금 덜 선명해요</span></small></label>
         <button id="advReset" class="lite">기본값으로</button>
         <button id="perfBtn" class="lite" style="margin-top:6px">속도 재기</button>
-        <small style="justify-content:flex-end;margin-top:8px;opacity:.7"><span>판 v11 · 11.26.</span></small>
+        <small style="justify-content:flex-end;margin-top:8px;opacity:.7"><span>판 v12 · 11.26.</span></small>
       </div></span>
   </div>
 </header>
@@ -1685,6 +1685,7 @@ sheet.addEventListener('pointerdown', ev => {
     const q = local(ev); hands.set(ev.pointerId, { x: q.x, y: q.y, t: ev.timeStamp });
     return;
   }
+  if (active && active.type === 'pen' && ev.pointerType === 'pen') endStroke();   // 앞 획의 '뗌'을 놓쳤으면 그 획을 마치고 새 획을 받는다(새 획을 버리지 않게)
   if (active) return;
   if (ev.pointerType === 'mouse' && ev.button !== 0) return;
   ev.preventDefault();
@@ -1804,6 +1805,11 @@ function finish(ev){
   if (swipeUp(ev)) { hands.delete(ev.pointerId); return; }
   if (hands.has(ev.pointerId)) { hands.delete(ev.pointerId); return; }
   if (!active || ev.pointerId !== active.id) return;
+  // 사파리는 펜을 뗀 뒤의 '잡기 풀림' 알림을 늦게 보내기도 한다. 그때 이미 다음 획을 쓰는 중이면(펜이 닿아 있으면) 그 획을 끊지 않는다
+  if (ev.type === 'lostpointercapture' && (ev.buttons & 1)) return;
+  endStroke();
+}
+function endStroke(){
   if (press) { press.up = performance.now(); kickFx(); }
   clearPred();
   active.r.end();
