@@ -163,7 +163,6 @@
         <label>볼펜 심 굵기 <em id="advBallV"></em><input id="advBall" type="range" min="0.3" max="1.6" step="0.1"></label>
         <label>사인펜 촉 굵기 <em id="advSignV"></em><input id="advSign" type="range" min="0.3" max="2.5" step="0.1"></label>
         <label>만년필 촉 <span class="segs" id="advNib"><button data-n="EF">EF</button><button data-n="F">F</button><button data-n="M">M</button><button data-n="B">B</button></span></label>
-        <label>샤프심 나오기 <span class="segs" id="advLead"><button data-l="btn">딸깍 눌러서</button><button data-l="auto">자동 샤프</button></span><small><span>펜 옆 버튼 · 오른쪽 단추 · 두 손가락 톡</span></small></label>
         <label>가벼운 모드 <span class="segs" id="advLite"><button data-v="0">끔</button><button data-v="1">켬</button></span><small><span>느린 기기에서 반응이 빨라져요 · 화면이 조금 덜 선명해요</span></small></label>
         <button id="advReset" class="lite">기본값으로</button>
       </div></span>
@@ -1434,7 +1433,8 @@ function leadClick(){
 function leadEmpty(){ toast(isTouchPen() ? '샤프심이 다 닳았어요. 펜 옆 버튼이나 두 손가락 톡!' : '샤프심이 다 닳았어요. 오른쪽 단추를 눌러 딸깍!'); if (typeof drawGauge === 'function') drawGauge(); }
 const isTouchPen = () => state.penSeen;
 const sharpOn = () => state.pen === 'sharp' && state.tool !== 'eraser';
-function leadButton(ev){   // 갤럭시 S펜 옆 버튼(누르는 순간 한 번)
+function leadButton(ev){   // 샤프심 딸깍 기능을 뺐다: 펜 옆 버튼은 지우개로만 쓴다
+  return false;
   if (ev.pointerType !== 'pen' || !sharpOn()) { leadBtn = false; return false; }
   const on = !!(ev.buttons & 2);
   if (on && !leadBtn) leadClick();
@@ -1442,6 +1442,7 @@ function leadButton(ev){   // 갤럭시 S펜 옆 버튼(누르는 순간 한 번
 }
 const tt = new Map();   // 두 손가락 톡: 거의 동시에 닿고(0.2초 안), 거의 안 움직이고, 금방(0.4초 안) 뗀다
 function twoTapDown(ev){
+  return false;   // 두 손가락 톡(샤프심 딸깍) 기능을 뺐다
   if (ev.pointerType !== 'touch' || !sharpOn()) return false;
   if (active && active.type === 'pen') return false;   // 쓰는 중에 닿는 손바닥은 무시
   tt.set(ev.pointerId, { x: ev.clientX, y: ev.clientY, t: ev.timeStamp });
@@ -1481,10 +1482,7 @@ sheet.addEventListener('pointerdown', ev => {
   }
   if (active) return;
   if (leadButton(ev)) { ev.preventDefault(); return; }
-  if (ev.pointerType === 'mouse' && ev.button === 2 && sharpOn()) { ev.preventDefault(); leadClick(); return; }   // 마우스 오른쪽 단추 = 펜 옆 버튼
   if (ev.pointerType === 'mouse' && ev.button !== 0) return;
-  if (sharpOn() && !isEraserEvent(ev) && adv.lead === 'auto' && lead < .5) { lead = Math.min(.5, lead + .25); saveLead(); }   // 자동 샤프: 댈 때마다 조금씩 밀려 나와 0.5mm쯤을 지킨다
-  if (sharpOn() && !isEraserEvent(ev) && lead <= 0) { ev.preventDefault(); leadEmpty(); return; }
   ev.preventDefault();
   try { sheet.setPointerCapture(ev.pointerId); } catch (e) {}
   notePressure(ev);
@@ -1525,14 +1523,6 @@ function addPoint(ev){
   // 진행 방향과 꺾임
   const ndx = (q.x - a.lx) / dist, ndy = (q.y - a.ly) / dist;
   const turn = a.dx * ndx + a.dy * ndy;
-  if (a.tool === 'sharp') {
-    if (a.dry) return;
-    lead -= dist / L.s * 10 * LEAD_WEAR; saveLead();   // 쓴 길이(원고지 한 칸 = 10mm)만큼 닳는다
-    if (lead > 2 && a.st.rp && a.p > .88 && Math.random() < .02) {   // 너무 길게 뺀 심을 세게 누르면 '똑' 부러진다
-      lead = .1 + Math.random() * .3; saveLead(); soundKnock(); toast('똑! 샤프심이 부러졌어요');
-    }
-    if (lead <= 0) { lead = 0; a.dry = true; leadEmpty(); return; }
-  }
   a.r.add({ x: a.sx * DPR, y: a.sy * DPR, p: a.p, t, v: a.v });
   const g = toGrid(a.sx, a.sy), pt = [+g[0].toFixed(4), +g[1].toFixed(4), +a.p.toFixed(3), +t.toFixed(3)];
   if (a.st.e === 'tape') pt.push(+a.v.toFixed(3));   // 끄는 빠르기(느리면 주름)
