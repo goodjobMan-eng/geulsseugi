@@ -112,6 +112,7 @@
   #adv label{display:block;margin-top:12px} #adv label em{float:right;font-style:normal;color:#c84c3a;font-variant-numeric:tabular-nums}
   #adv input[type=range]{width:100%;margin-top:6px;accent-color:#c84c3a} #adv small{display:flex;justify-content:space-between;color:#8a8072;font-size:12px}
   #adv .segs{display:flex;gap:4px;margin-top:6px} #adv .segs button{flex:1;height:34px;border-radius:8px;background:rgba(60,45,20,.05);justify-content:center}
+  #adv canvas.smp{display:block;width:100%;height:26px;margin-top:2px} #adv canvas.smp.tall{height:48px;margin-top:6px}
   #adv .segs button.on{background:#c84c3a;color:#fff} #adv .lite{margin-top:14px;height:34px;width:100%;justify-content:center;background:rgba(60,45,20,.05);border-radius:8px}
   @media (max-width:980px){ button span.l{display:none} #kindName{display:none} }
   @media (max-width:900px){ .status{display:none} .size input{width:96px} .size span.l{display:none} button{padding:0 8px} #bar{gap:2px;padding:0 6px} }
@@ -185,13 +186,13 @@
     <button id="sound" title="연필 소리"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10v4h3l5 4V6L7 10z"/><path id="w1" d="M15.5 9.5a3.5 3.5 0 010 5"/><path id="w2" d="M18 7a7 7 0 010 10"/></svg><span class="l" id="soundLabel">작게</span></button>
     <span style="position:relative"><button id="advBtn" title="고급 설정"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg><span class="l">고급 설정</span></button>
       <div id="adv"><b>고급 설정</b>
-        <label>연필 깎은 정도 <em id="advSharpV"></em><input id="advSharp" type="range" min="0" max="100" step="1"><small><span>뭉툭 0</span><span>100 뾰족</span></small></label>
-        <label>볼펜 심 굵기 <em id="advBallV"></em><input id="advBall" type="range" min="0.3" max="1.6" step="0.1"></label>
-        <label>사인펜 촉 굵기 <em id="advSignV"></em><input id="advSign" type="range" min="0.3" max="2.5" step="0.1"></label>
-        <label>만년필 촉 <span class="segs" id="advNib"><button data-n="EF">EF</button><button data-n="F">F</button><button data-n="M">M</button><button data-n="B">B</button></span></label>
+        <label>연필 깎은 정도 <em id="advSharpV"></em><input id="advSharp" type="range" min="0" max="100" step="1"><small><span>뭉툭 0</span><span>100 뾰족</span></small><canvas class="smp" id="smpSharp"></canvas></label>
+        <label>볼펜 심 굵기 <em id="advBallV"></em><input id="advBall" type="range" min="0.3" max="1.6" step="0.1"><canvas class="smp" id="smpBall"></canvas></label>
+        <label>사인펜 촉 굵기 <em id="advSignV"></em><input id="advSign" type="range" min="0.3" max="2.5" step="0.1"><canvas class="smp" id="smpSign"></canvas></label>
+        <label>만년필 촉 <span class="segs" id="advNib"><button data-n="EF">EF</button><button data-n="F">F</button><button data-n="M">M</button><button data-n="B">B</button></span><canvas class="smp tall" id="smpNib"></canvas></label>
         <label>가벼운 모드 <span class="segs" id="advLite"><button data-v="0">끔</button><button data-v="1">켬</button></span><small><span>느린 기기에서 반응이 빨라져요 · 화면이 조금 덜 선명해요</span></small></label>
         <button id="advReset" class="lite">기본값으로</button>
-        <small style="justify-content:flex-end;margin-top:8px;opacity:.7"><span>판 v8 · 11.26.</span></small>
+        <small style="justify-content:flex-end;margin-top:8px;opacity:.7"><span>판 v9 · 11.26.</span></small>
       </div></span>
   </div>
 </header>
@@ -2700,8 +2701,30 @@ function setAdvUI(){
   for (const b of document.querySelectorAll('#advNib button')) b.classList.toggle('on', b.dataset.n === adv.nib);
   for (const b of document.querySelectorAll('#advLite button')) b.classList.toggle('on', (b.dataset.v === '1') === !!adv.lite);
 }
-const advSet = (k, v) => { adv[k] = v; store.set('adv', adv); applyAdv(); setAdvUI(); };
-$('#advBtn').addEventListener('click', e => { e.stopPropagation(); $('#adv').classList.toggle('open'); });
+const advSet = (k, v) => { adv[k] = v; store.set('adv', adv); applyAdv(); setAdvUI(); drawAdvSamples(); };
+$('#advBtn').addEventListener('click', e => { e.stopPropagation(); if ($('#adv').classList.toggle('open')) drawAdvSamples(); });
+/* 고급 설정 견본: 지금 설정으로 그 필기구가 실제로 쓴 한 줄(종이에 쓰는 획 엔진 그대로) */
+function drawAdvSamples(){
+  if (!$('#adv').classList.contains('open') || !L.penR) return;
+  const one = (id, tool, path, k) => {
+    const cv = $('#' + id); if (!cv) return;
+    const w = cv.clientWidth, h = cv.clientHeight; if (!w) return;
+    cv.width = Math.round(w * DPR); cv.height = Math.round(h * DPR);
+    const g = cv.getContext('2d'); g.clearRect(0, 0, cv.width, cv.height);
+    const r = new Stroke(g, tool, 7, false);
+    if (PENS[tool].kind === 'graphite') r.blunt = advBlunt();
+    r.k = k != null ? k : penK(tool);
+    const pts = path(w, h);
+    pts.forEach((q, i) => { const P = { x: q[0] * DPR, y: q[1] * DPR, p: q[2], t: 0, v: .4 }; i ? r.add(P) : r.begin(P); });
+    r.end();
+  };
+  const wave = (w, h) => { const a = []; for (let x = 6; x <= w - 6; x += 2) { const u = (x - 6) / (w - 12); a.push([x, h / 2 + Math.sin(u * 9.4) * h * .22, .45 + .4 * Math.sin(u * 3.1)]); } return a; };
+  const loops = (w, h) => { const a = []; const n = 7, step = (w - 24) / (n * 6.2832); for (let t = 0; t <= n * 6.2832; t += .12) { const lift = Math.min(1, t / 3), yy = -h * .34 * Math.cos(t) * lift, x = 12 + step * t - 5 * Math.sin(t) - yy * .35, y = h * .56 + yy; a.push([x, y, .4 + .35 * (.5 + .5 * Math.cos(t))]); } return a; };   // 이어 쓴 필기체 고리
+  one('smpSharp', 'hb', wave);
+  one('smpBall', 'ball', wave);
+  one('smpSign', 'sign', wave);
+  one('smpNib', 'fountain', loops);
+}
 $('#adv').addEventListener('click', e => e.stopPropagation());
 $('#adv').addEventListener('pointerdown', e => e.stopPropagation());
 document.addEventListener('pointerdown', e => { if (!e.target.closest('#adv,#advBtn')) $('#adv').classList.remove('open'); });
@@ -2710,7 +2733,7 @@ $('#advBall').addEventListener('input', e => advSet('ball', +e.target.value));
 $('#advSign').addEventListener('input', e => advSet('sign', +e.target.value));
 for (const b of document.querySelectorAll('#advNib button')) b.addEventListener('click', () => advSet('nib', b.dataset.n));
 for (const b of document.querySelectorAll('#advLite button')) b.addEventListener('click', () => { const on = b.dataset.v === '1'; if (on === !!adv.lite) return; adv.liteSet = true; advSet('lite', on); toast(on ? '가벼운 모드를 켰어요' : '가벼운 모드를 껐어요'); });
-$('#advReset').addEventListener('click', () => { Object.assign(adv, ADV0); store.set('adv', adv); applyAdv(); setAdvUI(); toast('기본값으로 돌렸어요'); });
+$('#advReset').addEventListener('click', () => { Object.assign(adv, ADV0); store.set('adv', adv); applyAdv(); setAdvUI(); drawAdvSamples(); toast('기본값으로 돌렸어요'); });
 setAdvUI(); document.body.classList.toggle('litemode', !!adv.lite);
 setModeButtons(); setSoundUI(); updateStatus(); setSizeUI(); setPaperUI(); setPenUI();
 applyLayout();
