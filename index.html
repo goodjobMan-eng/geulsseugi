@@ -78,6 +78,7 @@
   #sheet.in{transform:translateY(26px);opacity:0;transition:none}
   #sheet canvas{position:absolute;left:0;top:0;width:100%;height:100%}
   #ink{mix-blend-mode:multiply} #pen,#red{mix-blend-mode:multiply} #cover{filter:drop-shadow(0 .6px .7px rgba(70,55,35,.3))} body.litemode #cover{filter:none}
+  body.litemode #ink,body.litemode #pen,body.litemode #red{mix-blend-mode:normal}
   #sheet.erasing{cursor:cell}
   #toast{position:fixed;left:50%;bottom:22px;transform:translate(-50%,16px);opacity:0;pointer-events:none;
     background:#fffdf6;color:var(--ink);font-size:14px;padding:10px 16px;border-radius:10px;
@@ -181,7 +182,7 @@ const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
 const lerp = (a, b, t) => a + (b - a) * t;
 const LITE_DPR = 1.25;
 const dprFor = lite => clamp(window.devicePixelRatio || 1, 1, lite ? LITE_DPR : 2.5);
-let DPR = dprFor((() => { try { return (JSON.parse(localStorage.getItem('sseugi-adult.adv')) || {}).lite; } catch (e) { return false; } })());
+let DPR = dprFor((() => { try { const a = JSON.parse(localStorage.getItem('sseugi-adult.adv')) || {}; return a.liteSet ? !!a.lite : true; } catch (e) { return true; } })());
 function mulberry32(a){ return function(){ a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 const store = {
   get(k, d){ try { const v = localStorage.getItem('sseugi-adult.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
@@ -277,8 +278,9 @@ for (const k in PENS) {
 }
 if (!PENS[state.pen]) state.pen = 'hb';
 /* 고급 설정(성인용): 연필 깎은 정도와 펜 굵기를 숫자로 직접 정한다 */
-const ADV0 = { sharp: 90, ball: .7, sign: 1.0, nib: 'F', lead: 'btn', lite: false };
+const ADV0 = { sharp: 90, ball: .7, sign: 1.0, nib: 'F', lead: 'btn', lite: true };
 const adv = Object.assign({}, ADV0, store.get('adv', {}));
+if (!adv.liteSet) adv.lite = true;   // 가벼운 모드는 기본으로 켬 — 직접 끈 경우만 끔을 지킨다
 const NIB = { EF: .72, F: .9, M: 1.05, B: 1.3 };
 function advBlunt(){ return 1 - adv.sharp / 100; }
 function penK(tool){ const k = (PENS[tool] || {}).kind; return k === 'ball' ? adv.ball / .7 : k === 'sign' ? adv.sign / 1.0 : k === 'fountain' ? (NIB[adv.nib] || 1.05) / 1.05 : 1; }   // 이미 쓴 획은 그때 굵기 그대로
@@ -1204,7 +1206,7 @@ function soundMove(v, p, tool, dist, turn){
   Snd.sg.gain.setTargetAtTime(target, now, target > Snd.cur ? (Snd.atk || P.atk) : (Snd.rel || P.rel));
   Snd.cur = target;
   // 종이 결 알갱이: 짧은 마찰 입자를 촘촘하고 불규칙하게(본 획보다 6~8dB 작게)
-  if (P.gMs && target > .015) {
+  if (P.gMs && target > .015 && !adv.lite) {
     const tNow = performance.now(), rate = P.gRate[0] + Math.random() * (P.gRate[1] - P.gRate[0]);
     if (tNow - (Snd.lastTick || 0) > 1000 / rate) {
       // 질감 필기구: 지난 알갱이 뒤로 흐른 시간만큼 여러 개를 흩뿌려 촘촘하게(종이 섬유에 걸리는 '사각' 임펄스)
@@ -1754,7 +1756,9 @@ async function loadBooks(){
 function bookSave(){
   if (!Book.ready || !bookOn()) return;
   const p = curPage(), d = curBook(); p.strokes = state.strokes; p.t = d.t = Date.now();
-  const m = state.mode; clearTimeout(Book.t); Book.t = setTimeout(() => IDB.set(m, Book[m]), 300);
+  const m = state.mode; clearTimeout(Book.t);
+  const save = () => { if (active) { Book.t = setTimeout(save, 600); return; } IDB.set(m, Book[m]); };   // 쓰는 중에는 미뤄 그리기를 멈추지 않게
+  Book.t = setTimeout(save, 1200);
 }
 function bookFlush(){ if (!Book.ready) return; clearTimeout(Book.t); for (const m of MODES) if (Book[m]) IDB.set(m, Book[m]); }
 window.addEventListener('pagehide', bookFlush);
@@ -2512,7 +2516,7 @@ $('#advBall').addEventListener('input', e => advSet('ball', +e.target.value));
 $('#advSign').addEventListener('input', e => advSet('sign', +e.target.value));
 for (const b of document.querySelectorAll('#advNib button')) b.addEventListener('click', () => advSet('nib', b.dataset.n));
 for (const b of document.querySelectorAll('#advLead button')) b.addEventListener('click', () => { advSet('lead', b.dataset.l); toast(b.dataset.l === 'auto' ? '자동 샤프: 펜을 댈 때마다 심이 조금씩 나와요' : '딸깍 눌러서 심을 빼요'); });
-for (const b of document.querySelectorAll('#advLite button')) b.addEventListener('click', () => { const on = b.dataset.v === '1'; if (on === !!adv.lite) return; advSet('lite', on); toast(on ? '가벼운 모드를 켰어요' : '가벼운 모드를 껐어요'); });
+for (const b of document.querySelectorAll('#advLite button')) b.addEventListener('click', () => { const on = b.dataset.v === '1'; if (on === !!adv.lite) return; adv.liteSet = true; advSet('lite', on); toast(on ? '가벼운 모드를 켰어요' : '가벼운 모드를 껐어요'); });
 $('#advReset').addEventListener('click', () => { Object.assign(adv, ADV0); store.set('adv', adv); applyAdv(); setAdvUI(); toast('기본값으로 돌렸어요'); });
 setAdvUI(); document.body.classList.toggle('litemode', !!adv.lite);
 setModeButtons(); setSoundUI(); updateStatus(); setSizeUI(); setPaperUI(); setPenUI();
