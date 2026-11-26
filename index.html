@@ -193,7 +193,7 @@
   <div class="group">
     <button id="finger" title="손가락으로도 쓰기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11V5a1.5 1.5 0 013 0v5"/><path d="M12 10V8.5a1.5 1.5 0 013 0V11"/><path d="M15 10.5a1.5 1.5 0 013 0V15a6 6 0 01-6 6h-1a5 5 0 01-4.2-2.3L4.5 15a1.5 1.5 0 012.4-1.8L9 15"/></svg><span class="l">손가락</span></button>
     <button id="sound" title="연필 소리"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10v4h3l5 4V6L7 10z"/><path id="w1" d="M15.5 9.5a3.5 3.5 0 010 5"/><path id="w2" d="M18 7a7 7 0 010 10"/></svg><span class="l" id="soundLabel">작게</span></button>
-    <button id="fsBtn" title="전체 화면"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg><span class="l">전체 화면</span></button>
+    <button id="fsBtn" title="가득 보기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg><span class="l">전체 화면</span></button>
     <span style="position:relative"><button id="advBtn" title="고급 설정"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg><span class="l">고급 설정</span></button>
       <div id="adv"><b>고급 설정</b>
         <label>연필 깎은 정도 <em id="advSharpV"></em><input id="advSharp" type="range" min="0" max="100" step="1"><small><span>뭉툭 0</span><span>100 뾰족</span></small><canvas class="smp" id="smpSharp"></canvas></label>
@@ -202,7 +202,7 @@
         <label>만년필 촉 <span class="segs" id="advNib"><button data-n="EF">EF</button><button data-n="F">F</button><button data-n="M">M</button><button data-n="B">B</button></span><canvas class="smp tall" id="smpNib"></canvas></label>
         <label>가벼운 모드 <span class="segs" id="advLite"><button data-v="0">끔</button><button data-v="1">켬</button></span><small><span>느린 기기에서 반응이 빨라져요 · 화면이 조금 덜 선명해요</span></small></label>
         <button id="advReset" class="lite">기본값으로</button>
-        <small style="justify-content:flex-end;margin-top:8px;opacity:.7"><span>판 v17 · 11.26.</span></small>
+        <small style="justify-content:flex-end;margin-top:8px;opacity:.7"><span>판 v18 · 11.26.</span></small>
       </div></span>
   </div>
 </header>
@@ -574,7 +574,11 @@ $('#copyClose').addEventListener('click', () => { Copy.on = false; copySave(); c
 $('#copyPick').addEventListener('click', e => { e.stopPropagation(); const m = $('#copyMenu'); if (m.classList.toggle('open')) copyMenuBuild(); });
 document.addEventListener('pointerdown', e => { const m = $('#copyMenu'); if (m.classList.contains('open') && !e.target.closest('#copyMenu,#copyPick')) m.classList.remove('open'); });
 copyRender();
-const isFull = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+/* 가득 보기: 도구 막대를 숨기고 종이를 화면 가득. 아이패드 사파리의 '전체 화면'은 펜으로 많이 쓰면 '가짜 키보드' 경고를 띄워서 쓰지 않는다 */
+let fullOn = false;
+const isFull = () => fullOn;
+const isIOS = /iP(ad|hone|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const isStandalone = !!(navigator.standalone || (window.matchMedia && matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches));
 /* 배치: 먼저 고른 용지 방향(가로형·세로형)의 가상 종이에서 칸 수를 정하고, 그 칸 수 그대로 지금 화면에 맞춘다.
    그래서 태블릿을 돌려도 칸 수가 바뀌지 않고 종이 크기만 달라진다(끝에 쓴 글씨가 잘리지 않음) */
 function layoutCore(vw, vh, F){   // F: 칸 수를 정해 두고 크기만 맞출 때 { cols, rows, gw, gh(칸 단위 격자 크기), sMax }
@@ -2355,7 +2359,7 @@ function edgeZone(x, y){
 }
 document.addEventListener('pointerdown', ev => {
   if (!bookOn() || !Book.ready || flip || tear || swipe || active) return;
-  if (ev.target.closest && ev.target.closest('#bar,#penMenu,#docs,#pageNo,#home,#result,#pop,#sharpen,.lbl,#copyBox')) return;
+  if (ev.target.closest && ev.target.closest('#bar,#penMenu,#docs,#pageNo,#home,#result,#pop,#sharpen,.lbl,#copyBox,#fsHandle,#fsBtn')) return;
   const z = edgeZone(ev.clientX, ev.clientY); if (!z) return;
   if (ev.pointerType === 'pen' && z.inside) return;    // 펜은 종이 안쪽에서는 글씨만
   sheetRect = sheet.getBoundingClientRect(); ensureAudio();
@@ -2745,24 +2749,23 @@ $('#paperBtn').addEventListener('click', () => {
 });
 let rz = 0;
 let wasPortrait = innerHeight > innerWidth;
-function setFsUI(){ const on = isFull(); $('#fsBtn').classList.toggle('on', on); $('#fsBtn').dataset.tip = on ? '전체 화면 끝내기' : '전체 화면'; $('#fsBtn').innerHTML = on
+function setFsUI(){ const on = isFull(); $('#fsBtn').classList.toggle('on', on); $('#fsBtn').dataset.tip = on ? '가득 보기 끝내기' : '가득 보기'; $('#fsBtn').innerHTML = on
   ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4v5H4M20 9h-5V4M15 20v-5h5M4 15h5v5"/></svg>'
   : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg>'; }
+function setFull(on){
+  fullOn = on; document.body.classList.toggle('full', on); document.body.classList.remove('showbar'); setFsUI(); applyLayout();
+  if (on && (state.mode === 'manuscript' || state.mode === 'vmanuscript')) toast(state.orient === 'port' ? '400자 원고지(20칸 × 20줄) · 도구는 오른쪽 아래 단추' : '200자 원고지(20칸 × 10줄) · 도구는 오른쪽 아래 단추');
+  else if (on) toast('도구는 오른쪽 아래 단추');
+  if (on && isIOS && !isStandalone && !store.get('fsTip', false)) { store.set('fsTip', true); setTimeout(() => toast('주소창까지 없애려면 사파리 공유 → 홈 화면에 추가로 여세요'), 2600); }
+}
 $('#fsBtn').addEventListener('click', () => {
-  const d = document, el = d.documentElement;
-  try {
-    if (isFull()) (d.exitFullscreen || d.webkitExitFullscreen).call(d);
-    else {
-      const req = el.requestFullscreen || el.webkitRequestFullscreen;
-      if (!req) { toast('이 브라우저는 전체 화면을 못 해요. 공유 → 홈 화면에 추가로 열면 주소창 없이 써져요'); return; }
-      const r = req.call(el); if (r && r.catch) r.catch(() => toast('전체 화면을 열지 못했어요. 공유 → 홈 화면에 추가로 열어 보세요'));
-    }
-  } catch (e) { toast('전체 화면을 열지 못했어요. 공유 → 홈 화면에 추가로 열어 보세요'); }
+  const d = document, el = d.documentElement, real = !isIOS && !isStandalone && (el.requestFullscreen || el.webkitRequestFullscreen);   // 컴퓨터·안드로이드는 브라우저 전체 화면도 함께
+  if (!fullOn) { setFull(true); if (real) try { const r = real.call(el); if (r && r.catch) r.catch(() => {}); } catch (e) {} }
+  else { setFull(false); if (d.fullscreenElement || d.webkitFullscreenElement) try { (d.exitFullscreen || d.webkitExitFullscreen).call(d); } catch (e) {} }
 });
 $('#fsHandle').addEventListener('click', e => { e.stopPropagation(); document.body.classList.toggle('showbar'); });
 sheet.addEventListener('pointerdown', () => document.body.classList.remove('showbar'), true);   // 종이에 쓰기 시작하면 도구 막대는 다시 숨는다
-for (const t of ['fullscreenchange', 'webkitfullscreenchange']) document.addEventListener(t, () => { document.body.classList.toggle('full', isFull()); document.body.classList.remove('showbar'); setFsUI(); applyLayout(); if (isFull() && (state.mode === 'manuscript' || state.mode === 'vmanuscript')) toast(state.orient === 'port' ? '400자 원고지(20칸 × 20줄) · 도구는 오른쪽 아래 단추' : '200자 원고지(20칸 × 10줄) · 도구는 오른쪽 아래 단추'); });
-if (window.navigator.standalone || matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches) $('#fsBtn').style.display = 'none';   // 홈 화면 앱으로 열면 이미 주소창이 없다
+for (const t of ['fullscreenchange', 'webkitfullscreenchange']) document.addEventListener(t, () => { if (fullOn && !(document.fullscreenElement || document.webkitFullscreenElement)) setFull(false); });   // Esc 등으로 브라우저 전체 화면이 풀리면 함께 끝낸다
 window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { applyLayout(); const pt = innerHeight > innerWidth; wasPortrait = pt; }, 120); });
 
 function setAdvUI(){
