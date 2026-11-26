@@ -84,6 +84,7 @@
   #copyMenu{position:absolute;top:44px;left:8px;z-index:20;width:min(360px,calc(100vw - 32px));max-height:min(560px,calc(100vh - 140px));overflow:auto;padding:6px;
     background:#fffdf8;border-radius:14px;box-shadow:0 12px 32px -10px rgba(50,40,20,.45),0 0 0 1px rgba(60,45,20,.08);display:none}
   #copyMenu.open{display:block}
+  #fsBtn.on{color:var(--red)}
   #copyBtn.on{background:var(--pencil-soft);box-shadow:inset 0 -3px 0 var(--pencil)}
   #copyMenu .it{width:100%;height:auto;min-height:48px;justify-content:space-between;gap:10px;padding:8px 12px;border-radius:10px;font-family:"Nanum Myeongjo","Noto Serif KR","AppleMyungjo","Batang",serif}
   #copyMenu .it b{font-size:16px;font-weight:700;white-space:normal;text-align:left} #copyMenu .it small{color:#8a8072;font-size:13px;flex:none}
@@ -184,6 +185,7 @@
   <div class="group">
     <button id="finger" title="손가락으로도 쓰기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11V5a1.5 1.5 0 013 0v5"/><path d="M12 10V8.5a1.5 1.5 0 013 0V11"/><path d="M15 10.5a1.5 1.5 0 013 0V15a6 6 0 01-6 6h-1a5 5 0 01-4.2-2.3L4.5 15a1.5 1.5 0 012.4-1.8L9 15"/></svg><span class="l">손가락</span></button>
     <button id="sound" title="연필 소리"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10v4h3l5 4V6L7 10z"/><path id="w1" d="M15.5 9.5a3.5 3.5 0 010 5"/><path id="w2" d="M18 7a7 7 0 010 10"/></svg><span class="l" id="soundLabel">작게</span></button>
+    <button id="fsBtn" title="전체 화면"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg><span class="l">전체 화면</span></button>
     <span style="position:relative"><button id="advBtn" title="고급 설정"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg><span class="l">고급 설정</span></button>
       <div id="adv"><b>고급 설정</b>
         <label>연필 깎은 정도 <em id="advSharpV"></em><input id="advSharp" type="range" min="0" max="100" step="1"><small><span>뭉툭 0</span><span>100 뾰족</span></small><canvas class="smp" id="smpSharp"></canvas></label>
@@ -192,7 +194,7 @@
         <label>만년필 촉 <span class="segs" id="advNib"><button data-n="EF">EF</button><button data-n="F">F</button><button data-n="M">M</button><button data-n="B">B</button></span><canvas class="smp tall" id="smpNib"></canvas></label>
         <label>가벼운 모드 <span class="segs" id="advLite"><button data-v="0">끔</button><button data-v="1">켬</button></span><small><span>느린 기기에서 반응이 빨라져요 · 화면이 조금 덜 선명해요</span></small></label>
         <button id="advReset" class="lite">기본값으로</button>
-        <small style="justify-content:flex-end;margin-top:8px;opacity:.7"><span>판 v15 · 11.26.</span></small>
+        <small style="justify-content:flex-end;margin-top:8px;opacity:.7"><span>판 v16 · 11.26.</span></small>
       </div></span>
   </div>
 </header>
@@ -562,6 +564,7 @@ $('#copyClose').addEventListener('click', () => { Copy.on = false; copySave(); c
 $('#copyPick').addEventListener('click', e => { e.stopPropagation(); const m = $('#copyMenu'); if (m.classList.toggle('open')) copyMenuBuild(); });
 document.addEventListener('pointerdown', e => { const m = $('#copyMenu'); if (m.classList.contains('open') && !e.target.closest('#copyMenu,#copyPick')) m.classList.remove('open'); });
 copyRender();
+const isFull = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
 function computeLayout(){
   const top0 = copyH();   // 필사 중이면 위쪽은 시 칸 자리
   const vw = desk.clientWidth, vh = desk.clientHeight - top0;
@@ -576,9 +579,10 @@ function computeLayout(){
     const R0 = SIZE_RANGE[state.mode]; let s0 = clamp(state.cell[state.mode] || R0[0], R0[0], R0[1]);
     let rows0, cols0;
     if (vert) {
-      if (vh > vw) { rows0 = 20; s0 = Math.min(s0 * 1.25, innerH / 20); }   // 태블릿을 세로로 들면: 진짜 세로 원고지처럼 한 줄 20칸을 꽉 채운다
+      if (isFull()) { rows0 = 20; s0 = Math.min(innerH / 20, innerW / (10 + 9 * gap)); }   // 전체 화면: 200자 세로 원고지(한 줄 20칸×10줄)
+      else if (vh > vw) { rows0 = 20; s0 = Math.min(s0 * 1.25, innerH / 20); }   // 태블릿을 세로로 들면: 진짜 세로 원고지처럼 한 줄 20칸을 꽉 채운다
       else { rows0 = Math.min(20, Math.max(6, Math.floor(innerH / s0))); s0 = Math.min(s0, innerH / rows0); }
-      cols0 = Math.max(3, Math.floor((innerW + gap * s0) / (s0 * (1 + gap))));
+      cols0 = isFull() ? 10 : Math.max(3, Math.floor((innerW + gap * s0) / (s0 * (1 + gap))));
     }
     else { cols0 = Math.max(4, Math.floor(innerW / s0)); rows0 = Math.max(4, Math.floor(innerH / s0)); }
     Object.assign(L, { nb: false, vert, free, lined, plain, m, headH, footH, gap, cols: cols0, rows: rows0, s: s0, gx: m, gy: m + headH,
@@ -596,6 +600,7 @@ function computeLayout(){
   s = Math.min(s, innerW / cols);
   let rows = Math.floor((innerH + gap * s) / (s * (1 + gap)));
   if (rows < 2) { rows = 2; s = Math.min(s, innerH / (2 + gap)); }
+  if (isFull() && state.mode === 'manuscript') { cols = 20; rows = 10; s = Math.min(innerW / 20, innerH / (10 + 9 * gap)); }   // 전체 화면: 200자 원고지(20칸×10줄)
   Object.assign(L, {
     nb, vert: false, free: false, lined: false, plain: false, m, headH, footH, gap, cols, rows, s,
     gx: m, gy: m + headH,
@@ -2701,6 +2706,22 @@ $('#paperBtn').addEventListener('click', () => {
 });
 let rz = 0;
 let wasPortrait = innerHeight > innerWidth;
+function setFsUI(){ const on = isFull(); $('#fsBtn').classList.toggle('on', on); $('#fsBtn').dataset.tip = on ? '전체 화면 끝내기' : '전체 화면'; $('#fsBtn').innerHTML = on
+  ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4v5H4M20 9h-5V4M15 20v-5h5M4 15h5v5"/></svg>'
+  : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg>'; }
+$('#fsBtn').addEventListener('click', () => {
+  const d = document, el = d.documentElement;
+  try {
+    if (isFull()) (d.exitFullscreen || d.webkitExitFullscreen).call(d);
+    else {
+      const req = el.requestFullscreen || el.webkitRequestFullscreen;
+      if (!req) { toast('이 브라우저는 전체 화면을 못 해요. 공유 → 홈 화면에 추가로 열면 주소창 없이 써져요'); return; }
+      const r = req.call(el); if (r && r.catch) r.catch(() => toast('전체 화면을 열지 못했어요. 공유 → 홈 화면에 추가로 열어 보세요'));
+    }
+  } catch (e) { toast('전체 화면을 열지 못했어요. 공유 → 홈 화면에 추가로 열어 보세요'); }
+});
+for (const t of ['fullscreenchange', 'webkitfullscreenchange']) document.addEventListener(t, () => { setFsUI(); applyLayout(); if (isFull() && (state.mode === 'manuscript' || state.mode === 'vmanuscript')) toast('200자 원고지(20칸 × 10줄)'); });
+if (window.navigator.standalone || matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches) $('#fsBtn').style.display = 'none';   // 홈 화면 앱으로 열면 이미 주소창이 없다
 window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { applyLayout(); const pt = innerHeight > innerWidth; if (pt !== wasPortrait && state.mode === 'vmanuscript') toast(pt ? '세로로 들었어요 · 한 줄 20칸' : '가로로 들었어요 · 세로로 들면 한 줄 20칸'); wasPortrait = pt; }, 120); });
 
 function setAdvUI(){
