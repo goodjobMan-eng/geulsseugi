@@ -161,7 +161,6 @@
     <button id="sound" title="연필 소리"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10v4h3l5 4V6L7 10z"/><path id="w1" d="M15.5 9.5a3.5 3.5 0 010 5"/><path id="w2" d="M18 7a7 7 0 010 10"/></svg><span class="l" id="soundLabel">작게</span></button>
     <span style="position:relative"><button id="advBtn" title="고급 설정"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg><span class="l">고급 설정</span></button>
       <div id="adv"><b>고급 설정</b>
-        <label>연필 깎은 정도 <em id="advSharpV"></em><input id="advSharp" type="range" min="0" max="100" step="1"><small><span>뭉툭 0</span><span>100 뾰족</span></small></label>
         <label>볼펜 심 굵기 <em id="advBallV"></em><input id="advBall" type="range" min="0.3" max="1.6" step="0.1"></label>
         <label>사인펜 촉 굵기 <em id="advSignV"></em><input id="advSign" type="range" min="0.3" max="2.5" step="0.1"></label>
         <label>만년필 촉 <span class="segs" id="advNib"><button data-n="EF">EF</button><button data-n="F">F</button><button data-n="M">M</button><button data-n="B">B</button></span></label>
@@ -277,12 +276,12 @@ for (const k in PENS) {
   P.pat = pattern(ictx, textureCanvas(fn), GRAIN);
 }
 if (!PENS[state.pen]) state.pen = 'hb';
-/* 고급 설정(성인용): 연필 깎은 정도와 펜 굵기를 숫자로 직접 정한다 */
-const ADV0 = { sharp: 90, ball: .7, sign: 1.0, nib: 'F', lead: 'btn', lite: true };
+/* 고급 설정(성인용): 펜 굵기를 숫자로 직접 정한다 */
+const ADV0 = { ball: .7, sign: 1.0, nib: 'F', lite: true };
 const adv = Object.assign({}, ADV0, store.get('adv', {}));
 if (!adv.liteSet) adv.lite = true;   // 가벼운 모드는 기본으로 켬 — 직접 끈 경우만 끔을 지킨다
 const NIB = { EF: .72, F: .9, M: 1.05, B: 1.3 };
-function advBlunt(){ return 1 - adv.sharp / 100; }
+function advBlunt(){ return .1; }   // 연필 깎은 정도는 늘 뾰족하게(조절·닳기 기능은 물리엔진_보관 판에)
 function penK(tool){ const k = (PENS[tool] || {}).kind; return k === 'ball' ? adv.ball / .7 : k === 'sign' ? adv.sign / 1.0 : k === 'fountain' ? (NIB[adv.nib] || 1.05) / 1.05 : 1; }   // 이미 쓴 획은 그때 굵기 그대로
 function applyAdv(){   // 가벼운 모드: 화면 선명도를 낮추고, 연필 가루·눌림·덧댐 그림자를 끄고, 연필 소리를 녹음 반복으로
   document.body.classList.toggle('litemode', !!adv.lite);
@@ -1421,51 +1420,6 @@ function pressureOf(ev, a){
   a.sp += (target - a.sp) * .22;
   return a.sp;
 }
-/* 샤프심(0.5mm)은 실제처럼 mm로 센다. 원고지 한 칸 = 10mm로 보고
-   · 한 번 딸깍 = 0.5mm 나옴, 3mm 넘게는 안 나옴(너무 길게 빼고 세게 누르면 부러짐)
-   · 0.5mm가 닳는 데 약 6m를 쓴다(200자 원고지 한 장쯤) · 0이 되면 쇠 촉이 종이에 닿아 안 써짐 */
-const LEAD_CLICK = .5, LEAD_MAX = 3, LEAD_WEAR = .5 / 6000;   // mm, mm, (닳는 mm) / (쓴 선 mm)
-let lead = (() => { const v = +store.get('leadMM', .5); return isFinite(v) ? clamp(v, 0, LEAD_MAX) : .5; })(), leadT = 0, leadBtn = false;
-const saveLead = () => { clearTimeout(leadT); leadT = setTimeout(() => store.set('leadMM', +lead.toFixed(4)), 400); };
-function leadClick(){
-  const was = lead; lead = Math.min(LEAD_MAX, lead + LEAD_CLICK); store.set('leadMM', +lead.toFixed(4));
-  if (!playSample('sclick', 1.3)) soundKnock();
-  toast(was >= LEAD_MAX ? '심이 이미 많이 나와 있어요(길면 부러지기 쉬워요)' : `딸깍! 샤프심 ${lead.toFixed(1)}mm`);
-  if (typeof drawGauge === 'function') drawGauge();
-}
-function leadEmpty(){ toast(isTouchPen() ? '샤프심이 다 닳았어요. 펜 옆 버튼이나 두 손가락 톡!' : '샤프심이 다 닳았어요. 오른쪽 단추를 눌러 딸깍!'); if (typeof drawGauge === 'function') drawGauge(); }
-const isTouchPen = () => state.penSeen;
-const sharpOn = () => state.pen === 'sharp' && state.tool !== 'eraser';
-function leadButton(ev){   // 샤프심 딸깍 기능을 뺐다: 펜 옆 버튼은 지우개로만 쓴다
-  return false;
-  if (ev.pointerType !== 'pen' || !sharpOn()) { leadBtn = false; return false; }
-  const on = !!(ev.buttons & 2);
-  if (on && !leadBtn) leadClick();
-  leadBtn = on; return on;
-}
-const tt = new Map();   // 두 손가락 톡: 거의 동시에 닿고(0.2초 안), 거의 안 움직이고, 금방(0.4초 안) 뗀다
-function twoTapDown(ev){
-  return false;   // 두 손가락 톡(샤프심 딸깍) 기능을 뺐다
-  if (ev.pointerType !== 'touch' || !sharpOn()) return false;
-  if (active && active.type === 'pen') return false;   // 쓰는 중에 닿는 손바닥은 무시
-  tt.set(ev.pointerId, { x: ev.clientX, y: ev.clientY, t: ev.timeStamp });
-  if (tt.size === 2) {
-    const [a, b] = [...tt.values()];
-    if (Math.abs(a.t - b.t) < 200) {
-      tt.g = true; tt.bad = false; tt.t0 = Math.min(a.t, b.t);
-      if (active && active.type === 'touch') { active = null; soundHush(); redrawInk(); }   // 첫 손가락이 긋기 시작한 선은 없던 일로
-      return true;
-    }
-  } else if (tt.size > 2) tt.bad = true;
-  return false;
-}
-function twoTapMove(ev){ const c = tt.get(ev.pointerId); if (c && Math.hypot(ev.clientX - c.x, ev.clientY - c.y) > 12) tt.bad = true; }
-function twoTapUp(ev){
-  if (!tt.has(ev.pointerId)) return;
-  tt.delete(ev.pointerId);
-  if (tt.g && tt.size === 0) { if (!tt.bad && ev.timeStamp - tt.t0 < 450) leadClick(); tt.g = false; }
-}
-sheet.addEventListener('pointermove', twoTapMove); sheet.addEventListener('pointerup', twoTapUp); sheet.addEventListener('pointercancel', twoTapUp);
 function isEraserEvent(ev){ return ev.pointerType === 'pen' && ((ev.buttons & 32) || (ev.buttons & 2)); }
 
 let swallowId = null;
@@ -1475,7 +1429,6 @@ sheet.addEventListener('pointerdown', ev => {
     if (open.length) { open.forEach(m => m.classList.remove('open', 'show')); swallowId = ev.pointerId; ev.preventDefault(); return; } }
   sheetRect = sheet.getBoundingClientRect();
   if (flip) { ev.preventDefault(); return; }
-  if (twoTapDown(ev) || tt.g) { ev.preventDefault(); return; }
   if (ev.pointerType === 'pen' && !state.penSeen) { state.penSeen = true; updateStatus(); }
   state.lastType = ev.pointerType;
   if (Snd.ok) ensureAudio(); else setTimeout(ensureAudio, 0);   // 소리 장치를 처음 만드는 데 시간이 걸려도 글씨는 바로 그려지게
@@ -1484,7 +1437,6 @@ sheet.addEventListener('pointerdown', ev => {
     return;
   }
   if (active) return;
-  if (leadButton(ev)) { ev.preventDefault(); return; }
   if (ev.pointerType === 'mouse' && ev.button !== 0) return;
   ev.preventDefault();
   try { sheet.setPointerCapture(ev.pointerId); } catch (e) {}
@@ -1565,7 +1517,6 @@ function addPoint(ev){
   a.lx = q.x; a.ly = q.y; a.lt = ev.timeStamp;
 }
 sheet.addEventListener('pointermove', ev => {
-  if (leadButton(ev) && !active) return;
   if (swipe && ev.pointerId === swipe.id && swipeMove(ev)) return;
   if (hands.has(ev.pointerId)) { brushWithHand(ev); return; }
   if (!active || ev.pointerId !== active.id) {
@@ -2499,11 +2450,9 @@ let wasPortrait = innerHeight > innerWidth;
 window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { applyLayout(); const pt = innerHeight > innerWidth; if (pt !== wasPortrait && state.mode === 'vmanuscript') toast(pt ? '세로로 들었어요 · 한 줄 20칸' : '가로로 들었어요 · 세로로 들면 한 줄 20칸'); wasPortrait = pt; }, 120); });
 
 function setAdvUI(){
-  $('#advSharp').value = adv.sharp; $('#advSharpV').textContent = adv.sharp;
   $('#advBall').value = adv.ball; $('#advBallV').textContent = adv.ball.toFixed(1) + 'mm';
   $('#advSign').value = adv.sign; $('#advSignV').textContent = adv.sign.toFixed(1) + 'mm';
   for (const b of document.querySelectorAll('#advNib button')) b.classList.toggle('on', b.dataset.n === adv.nib);
-  for (const b of document.querySelectorAll('#advLead button')) b.classList.toggle('on', b.dataset.l === adv.lead);
   for (const b of document.querySelectorAll('#advLite button')) b.classList.toggle('on', (b.dataset.v === '1') === !!adv.lite);
 }
 const advSet = (k, v) => { adv[k] = v; store.set('adv', adv); applyAdv(); setAdvUI(); };
@@ -2511,11 +2460,9 @@ $('#advBtn').addEventListener('click', e => { e.stopPropagation(); $('#adv').cla
 $('#adv').addEventListener('click', e => e.stopPropagation());
 $('#adv').addEventListener('pointerdown', e => e.stopPropagation());
 document.addEventListener('pointerdown', e => { if (!e.target.closest('#adv,#advBtn')) $('#adv').classList.remove('open'); });
-$('#advSharp').addEventListener('input', e => advSet('sharp', +e.target.value));
 $('#advBall').addEventListener('input', e => advSet('ball', +e.target.value));
 $('#advSign').addEventListener('input', e => advSet('sign', +e.target.value));
 for (const b of document.querySelectorAll('#advNib button')) b.addEventListener('click', () => advSet('nib', b.dataset.n));
-for (const b of document.querySelectorAll('#advLead button')) b.addEventListener('click', () => { advSet('lead', b.dataset.l); toast(b.dataset.l === 'auto' ? '자동 샤프: 펜을 댈 때마다 심이 조금씩 나와요' : '딸깍 눌러서 심을 빼요'); });
 for (const b of document.querySelectorAll('#advLite button')) b.addEventListener('click', () => { const on = b.dataset.v === '1'; if (on === !!adv.lite) return; adv.liteSet = true; advSet('lite', on); toast(on ? '가벼운 모드를 켰어요' : '가벼운 모드를 껐어요'); });
 $('#advReset').addEventListener('click', () => { Object.assign(adv, ADV0); store.set('adv', adv); applyAdv(); setAdvUI(); toast('기본값으로 돌렸어요'); });
 setAdvUI(); document.body.classList.toggle('litemode', !!adv.lite);
