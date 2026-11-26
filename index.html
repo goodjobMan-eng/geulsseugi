@@ -202,7 +202,7 @@
         <label>만년필 촉 <span class="segs" id="advNib"><button data-n="EF">EF</button><button data-n="F">F</button><button data-n="M">M</button><button data-n="B">B</button></span><canvas class="smp tall" id="smpNib"></canvas></label>
         <label>가벼운 모드 <span class="segs" id="advLite"><button data-v="0">끔</button><button data-v="1">켬</button></span><small><span>느린 기기에서 반응이 빨라져요 · 화면이 조금 덜 선명해요</span></small></label>
         <button id="advReset" class="lite">기본값으로</button>
-        <small style="justify-content:flex-end;margin-top:8px;opacity:.7"><span>판 v18 · 11.26.</span></small>
+        <small style="justify-content:flex-end;margin-top:8px;opacity:.7"><span>판 v19 · 11.26.</span></small>
       </div></span>
   </div>
 </header>
@@ -582,7 +582,7 @@ const isStandalone = !!(navigator.standalone || (window.matchMedia && matchMedia
 /* 배치: 먼저 고른 용지 방향(가로형·세로형)의 가상 종이에서 칸 수를 정하고, 그 칸 수 그대로 지금 화면에 맞춘다.
    그래서 태블릿을 돌려도 칸 수가 바뀌지 않고 종이 크기만 달라진다(끝에 쓴 글씨가 잘리지 않음) */
 function layoutCore(vw, vh, F){   // F: 칸 수를 정해 두고 크기만 맞출 때 { cols, rows, gw, gh(칸 단위 격자 크기), sMax }
-  const pad = isFull() ? 4 : vw < 700 ? 8 : 18;
+  const pad = isFull() ? 24 : vw < 700 ? 8 : 18;   // 가득 보기도 가장자리에 틈을 남긴다(찢기·장 넘기기를 종이 바깥에서 시작)
   const W = vw - pad * 2, H = vh - pad * 2;
   const nb = state.mode === 'notebook', vert = state.mode === 'vmanuscript', lined = state.mode === 'lined', plain = state.mode === 'plain', free = lined || plain;
   const m = clamp(Math.min(W, H) * .045, nb || free ? 30 : 22, 44);
