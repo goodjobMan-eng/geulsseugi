@@ -101,8 +101,7 @@
   #sheet.in{transform:translateY(26px);opacity:0;transition:none}
   #sheet canvas{position:absolute;left:0;top:0;width:100%;height:100%}
   #ink{mix-blend-mode:multiply} #pen,#red{mix-blend-mode:multiply} #cover{filter:drop-shadow(0 .6px .7px rgba(70,55,35,.3))} body.litemode #cover{filter:none}
-  #pred{mix-blend-mode:multiply}
-  body.litemode #ink,body.litemode #pen,body.litemode #red,body.litemode #pred{mix-blend-mode:normal}
+  body.litemode #ink,body.litemode #pen,body.litemode #red{mix-blend-mode:normal}
   #sheet.erasing{cursor:cell}
   #toast{position:fixed;left:50%;bottom:22px;transform:translate(-50%,16px);opacity:0;pointer-events:none;
     background:#fffdf6;color:var(--ink);font-size:14px;padding:10px 16px;border-radius:10px;
@@ -194,7 +193,7 @@
         <label>가벼운 모드 <span class="segs" id="advLite"><button data-v="0">끔</button><button data-v="1">켬</button></span><small><span>느린 기기에서 반응이 빨라져요 · 화면이 조금 덜 선명해요</span></small></label>
         <button id="advReset" class="lite">기본값으로</button>
         <button id="perfBtn" class="lite" style="margin-top:6px">속도 재기</button>
-        <small style="justify-content:flex-end;margin-top:8px;opacity:.7"><span>판 v13 · 11.26.</span></small>
+        <small style="justify-content:flex-end;margin-top:8px;opacity:.7"><span>판 v14 · 11.26.</span></small>
       </div></span>
   </div>
 </header>
@@ -614,7 +613,7 @@ function applyLayout(){
   computeLayout();
   const ci = document.getElementById('cellInfo'); if (ci) ci.textContent = L.plain ? '' : L.lined ? `${L.rows}줄` : L.vert ? `한 줄 ${L.rows}칸` : `한 줄 ${L.cols}칸`;
   Object.assign(sheet.style, { left: L.left + 'px', top: L.top + 'px', width: L.w + 'px', height: L.h + 'px' });
-  for (const c of [paperC, dentC, inkC, fxC, ...(typeof coverC !== 'undefined' ? [coverC, penC, redC, predC] : [])]) { c.width = Math.round(L.w * DPR); c.height = Math.round(L.h * DPR); }
+  for (const c of [paperC, dentC, inkC, fxC, ...(typeof coverC !== 'undefined' ? [coverC, penC, redC] : [])]) { c.width = Math.round(L.w * DPR); c.height = Math.round(L.h * DPR); }
   if (typeof tapeM !== 'undefined') sizeTape(tapeM, inkC.width, inkC.height);
   drawPaper();
   redrawInk();
@@ -738,8 +737,6 @@ const dctx = dentC.getContext('2d');
 // 층을 나눈다: 지우개는 연필 층만 지운다. 수정테이프·수정액은 그 아래 모든 층을 덮고(지우고) 하얀 덧댐 층에 칠한다
 const mkLayer = id => { const c = document.createElement('canvas'); c.id = id; inkC.insertAdjacentElement('beforebegin', c); return c; };
 const coverC = mkLayer('cover'), penC = mkLayer('pen'), redC = mkLayer('red');
-const predC = document.createElement('canvas'); predC.id = 'pred'; inkC.insertAdjacentElement('afterend', predC);   // 펜 끝을 앞서 그리는 층(다음 이벤트 때 지운다)
-const predX = predC.getContext('2d'); let predBox = null;
 const tapeM = document.createElement('canvas');   // 수정테이프가 붙은 자리(보이지 않음): 연필이 미끄러지고, 세게 누르면 벗겨진다
 const TAPE_S = .25;   // 판정 그림 축소 비율
 function sizeTape(cv, w, h){ cv.width = Math.max(1, Math.ceil(w * TAPE_S)); cv.height = Math.max(1, Math.ceil(h * TAPE_S)); const x = cv.getContext('2d', { willReadFrequently: true }); x.setTransform(TAPE_S, 0, 0, TAPE_S, 0, 0); x._dirty = true; }
@@ -1779,27 +1776,8 @@ sheet.addEventListener('pointermove', ev => {
   ev.preventDefault();
   const list = ev.getCoalescedEvents ? ev.getCoalescedEvents() : [];
   if (list.length) for (const e of list) addPoint(e); else addPoint(ev);
-  drawPred(ev);
   perfAfter(ev);
 }, { passive: false });
-/* 펜 끝 앞서 그리기: 웹 화면은 한두 장면 늦게 보이므로, 아직 안 그린 꼬리와 펜이 갈 곳(예측)을 임시 층에 그려 둔다.
-   다음 이벤트에서 진짜 획이 그 자리를 덮으면 임시 층은 지운다 */
-function clearPred(){ if (predBox) { predX.clearRect(predBox[0], predBox[1], predBox[2] - predBox[0], predBox[3] - predBox[1]); predBox = null; } }
-function drawPred(ev){
-  clearPred();
-  const a = active; if (!a || a.tool === 'eraser' || !a.r.last) return;
-  const pts = [[a.sx, a.sy]];
-  let pr = ev.getPredictedEvents ? ev.getPredictedEvents() : [];
-  if (pr && pr.length) { const q = local(pr[pr.length - 1]); pts.push([q.x, q.y]); }
-  else if (a.dx || a.dy) { const ahead = Math.min(14, a.v * 22); if (ahead > .8) pts.push([a.sx + a.dx * ahead, a.sy + a.dy * ahead]); }   // 지금 빠르기로 약 22ms 앞
-  const r = new Stroke(predX, a.tool, 99, false); r.blunt = a.r.blunt; r.k = a.r.k;
-  const L0 = a.r.last; r.begin({ x: L0.x, y: L0.y, p: L0.p, t: L0.t });
-  let x0 = L0.x, y0 = L0.y, x1 = L0.x, y1 = L0.y;
-  for (const [x, y] of pts) { const P = { x: x * DPR, y: y * DPR, p: a.p, t: L0.t, v: a.v }; r.add(P); x0 = Math.min(x0, P.x); y0 = Math.min(y0, P.y); x1 = Math.max(x1, P.x); y1 = Math.max(y1, P.y); }
-  r.end();
-  const m = (L.penR * 4 + 4) * DPR * Math.max(1, r.k || 1);
-  predBox = [Math.floor(x0 - m), Math.floor(y0 - m), Math.ceil(x1 + m), Math.ceil(y1 + m)];
-}
 function finish(ev){
   if (ev.pointerType === 'pen') state.penUpT = performance.now();
   if (swipeUp(ev)) { hands.delete(ev.pointerId); return; }
@@ -1811,7 +1789,6 @@ function finish(ev){
 }
 function endStroke(){
   if (press) { press.up = performance.now(); kickFx(); }
-  clearPred();
   active.r.end();
   state.strokes.push(active.st);
   active = null;
