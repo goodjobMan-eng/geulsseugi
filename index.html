@@ -57,6 +57,9 @@
   #penIcon svg{width:28px;height:28px;flex:none}
   #penMenu button > svg{width:36px;height:36px;flex:none}
   #penMenu canvas{width:64px;height:16px;margin-left:auto}
+  #penMenu .csw{display:flex;flex-wrap:wrap;gap:8px;padding:2px 12px 10px 56px}
+  #penMenu .csw .sw{width:24px;height:24px;min-width:0;padding:0;border-radius:50%;background:var(--c);box-shadow:inset 0 0 0 2px rgba(255,255,255,.75),0 1px 2px rgba(0,0,0,.25)}
+  #penMenu .csw .sw.on{box-shadow:inset 0 0 0 2px rgba(255,255,255,.9),0 0 0 2.5px #3a342c}
   .tool.on{background:var(--pencil-soft);box-shadow:inset 0 -3px 0 var(--pencil)}
   .seg{display:inline-flex;padding:3px;border-radius:12px;background:rgba(60,45,20,.07);margin:0 4px}
   .seg button{height:38px;padding:0 12px;border-radius:9px;font-size:14px;color:var(--ink-soft)}
@@ -205,7 +208,7 @@
         <label>만년필 촉 <span class="segs" id="advNib"><button data-n="EF">EF</button><button data-n="F">F</button><button data-n="M">M</button><button data-n="B">B</button></span><canvas class="smp tall" id="smpNib"></canvas></label>
         <label>가벼운 모드 <span class="segs" id="advLite"><button data-v="0">끔</button><button data-v="1">켬</button></span><small><span>느린 기기에서 반응이 빨라져요 · 화면이 조금 덜 선명해요</span></small></label>
         <button id="advReset" class="lite">기본값으로</button>
-        <small style="justify-content:flex-end;margin-top:8px;opacity:.7"><span>판 v21 · 11.27.</span></small>
+        <small style="justify-content:flex-end;margin-top:8px;opacity:.7"><span>판 v22 · 11.27.</span></small>
       </div></span>
   </div>
 </header>
@@ -303,10 +306,19 @@ const PENS = {
   hb:   { name: '연필 HB',      kind: 'graphite', rgb: [58, 58, 66], r: 1,    lo: .26, hi: .70 },
   b2:   { name: '진한 연필 2B', kind: 'graphite', rgb: [34, 34, 40], r: 1.18, lo: .40, hi: .58 },
   ball: { name: '볼펜',         kind: 'ball',     rgb: [30, 40, 86], r: .6 },
+  bball: { name: '파란 볼펜', kind: 'ball', rgb: [30, 72, 186], r: .6 },
+  rball: { name: '빨간 볼펜', kind: 'ball', rgb: [196, 30, 40], r: .6 },
+  gball: { name: '초록 볼펜', kind: 'ball', rgb: [26, 110, 70], r: .6 },
   sign: { name: '사인펜',       kind: 'sign',     rgb: [24, 24, 28], r: 1.5 },
+  psign: { name: '분홍 사인펜', kind: 'sign', rgb: [212, 78, 140], r: 1.5 },
   fountain: { name: '만년필',   kind: 'fountain', rgb: [26, 36, 92], r: 1.05 },
   sharp: { name: '샤프', kind: 'graphite', rgb: [60, 60, 68], r: .64, lo: .3, hi: .62, fixed: true },
-  red:  { name: '빨간 색연필(채점)', kind: 'wax', rgb: [204, 32, 40], r: 1.9 }
+  red:  { name: '빨간 색연필(채점)', kind: 'wax', rgb: [204, 32, 40], r: 1.9 },
+  // 형광펜: 넓적한 촉으로 반투명하게 칠한다(겹치면 진해짐)
+  hyellow: { name: '노랑 형광펜', kind: 'hl', rgb: [246, 226, 40], r: 8 },
+  hpink: { name: '분홍 형광펜', kind: 'hl', rgb: [244, 112, 170], r: 8 },
+  hgreen: { name: '연두 형광펜', kind: 'hl', rgb: [118, 212, 78], r: 8 },
+  hblue: { name: '하늘 형광펜', kind: 'hl', rgb: [80, 188, 236], r: 8 }
 };
 for (const k in PENS) {
   const P = PENS[k], [r, g, b] = P.rgb;
@@ -765,7 +777,7 @@ function drawGrid(g){
    점을 촘촘히 찍는 방식. 한 점의 투명도는 겹치는 점 수를 고려해
    '한 번 그었을 때의 진하기'가 필압에 맞도록 계산한다. 같은 곳을 덧그으면 결이 채워져 더 진해진다. */
 // 눌림 깊이(볼펜 > 연필 > 만년필 > 사인펜). 세게 눌러야 보인다
-const DENT = { ball: 1, graphite: .8, fountain: .6, sign: 0, wax: .35 };   // 사인펜은 촉이 부드럽고 굵어 거의 눌리지 않는다
+const DENT = { ball: 1, graphite: .8, fountain: .6, sign: 0, wax: .35, hl: 0 };   // 사인펜은 촉이 부드럽고 굵어 거의 눌리지 않는다
 const dentC = document.createElement('canvas'); dentC.id = 'dent'; paperC.insertAdjacentElement('afterend', dentC);
 const dctx = dentC.getContext('2d');
 // 층을 나눈다: 지우개는 연필 층만 지운다. 수정테이프·수정액은 그 아래 모든 층을 덮고(지우고) 하얀 덧댐 층에 칠한다
@@ -850,11 +862,12 @@ class Stroke {
     if (!T) return L.eraserR * DPR * (this.E || ERASERS.white).r * (.82 + .3 * P.p);
     if (T.kind === 'graphite') return L.penR * DPR * T.r * (.62 + .5 * P.p) * (T.fixed ? 1 + .25 * P.t : (1 + 2.1 * P.t) * (1 + .75 * this.blunt));  // 뭉툭할수록 굵고 흐리게
     if (T.kind === 'ball') return L.penR * DPR * T.r * this.k * (.88 + .22 * P.p);
+    if (T.kind === 'hl') return L.penR * DPR * T.r;
     if (T.kind === 'fountain') return L.penR * DPR * T.r * this.k * (.85 + .25 * P.p) * (.65 + .6 * Math.abs(Math.sin((this.dir || 0) - .6)));  // 펜촉 각도에 따라 굵기가 달라진다
     return L.penR * DPR * T.r * this.k * (.92 + .16 * P.p);
   }
   spacing(r){ if (!this.T && this.E && this.E.cover) return Math.max(.6 * DPR, r * (this.E.cover === 'tape' ? .1 : .3));
-    return this.T ? Math.max(.35 * DPR, r * (this.T.kind === 'graphite' ? .42 : .3)) : r * .28; }
+    return this.T ? Math.max(.35 * DPR, r * (this.T.kind === 'graphite' ? .42 : this.T.kind === 'hl' ? .12 : .3)) : r * .28; }
   stamp(P){
     if (!this.T && this.E && this.E.cover) return this.coverStamp(P);
     const g = this.ctx, rng = this.rng, T = this.T;
@@ -890,6 +903,9 @@ class Stroke {
         g.globalAlpha = .35 + .4 * P.p;
         g.fillRect(P.x + Math.cos(an) * d, P.y + Math.sin(an) * d, gs, gs);
       }
+    } else if (T && T.kind === 'hl') {   // 끌 모양 펠트 촉: 비스듬한 납작 사각형을 촘촘히 찍는다
+      g.globalAlpha = 1 - Math.pow(1 - .55, 1 / overlap);
+      g.save(); g.translate(P.x, P.y); g.rotate(-.5); g.fillRect(-r0 * .28, -r0, r0 * .56, r0 * 2); g.restore();
     } else if (T && T.kind === 'fountain') {
       this.n = (this.n || 0) + 1;
       const pool = this.n < 6 ? 1.08 : 1;   // 펜촉이 닿는 순간 잉크가 살짝 고인다
@@ -1234,7 +1250,10 @@ function ensureAudio(){
    종이에 닿는 동안의 주파수 모양을 1/6옥타브(60Hz부터)로 재고, 앱의 잡음·공통 필터 몫을 덜어 낸 값(dB).
    tps: 1초에 튀는 '사각' 알갱이 수, crest: 알갱이 세기. 소리는 녹음이 아니라 이 값으로 그때그때 만든다(반응이 즉각) */
 const TEX = {"f0":60,"step":6,"pens":{"hb":{"g":[-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-22.6,-22.6,-21.2,-20.8,-23.3,-24.0,-22.8,-22.1,-18.6,-12.9,-8.0,-4.3,-1.2,0.5,-0.1,-3.0,-7.1,-7.9,-1.8,7.0,12.2,12.2,11.0,11.6,11.1,9.4,8.8,9.5,10.4,11.3,13.4,15.2,15.9,15.6,13.9,13.9,16.5,18],"tps":96.2,"crest":1.87},"b2":{"g":[-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-3.8,-5.7,-7.3,-8.6,-10.0,-10.4,-9.1,-6.5,-2.8,0.9,3.4,4.8,5.9,6.5,6.2,4.5,2.3,1.0,0.6,0.7,0.4,0.1,0.1,-0.2,-0.7,-1.5,-1.6,-1.2,-1.4,-0.8,1.2,3.1,5.1,6.1,6.5,-4.9,-23.3,-25.1],"tps":106.5,"crest":1.91},"ball":{"g":[-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-15.1,-12.7,-13.2,-14.2,-13.0,-11.4,-10.5,-9.6,-8.5,-6.5,-2.7,1.4,3.3,4.6,5.6,4.7,4.2,4.7,5.3,5.2,4.2,3.8,3.6,2.2,0.8,1.4,3.4,3.6,1.3,0.3,0.0,-1.2,-1.7,-2.3,-4.2,-5.6,-6.3,-6.8],"tps":230.9,"crest":3.0},"fountain":{"g":[-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,0.4,-0.8,-2.8,-5.9,-8.7,-9.1,-7.8,-5.3,-2.0,1.8,5.7,7.6,7.9,7.9,7.8,7.4,5.8,3.5,2.6,2.5,2.1,1.5,-0.3,-2.6,-4.0,-4.9,-5.0,-4.6,-2.5,-0.2,-0.6,-2.2,-3.5,-4.1,-4.7,-14.7,-30,-30],"tps":160.4,"crest":2.14},"sign":{"g":[-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-13.0,-12.1,-11.3,-10.4,-10.3,-10.5,-9.4,-6.7,-3.9,-1.6,1.1,3.6,6.1,9.6,11.9,11.3,9.8,7.9,4.2,1.3,0.6,0.2,0.0,-0.5,-2.3,-3.4,-2.8,-2.3,-2.6,-3.0,-3.2,-2.8,-2.8,-4.0,-6.4,-16.5,-30,-30],"tps":228.0,"crest":4.18},"wax":{"g":[-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,2.4,3.8,3.6,2.4,0.9,1.0,1.9,2.1,2.3,2.4,3.3,5.2,6.3,6.9,7.8,7.7,6.3,5.5,4.3,2.3,1.0,0.6,1.4,1.6,-1.1,-4.9,-7.1,-7.5,-7.5,-7.7,-8.6,-11.3,-13.1,-12.7,-12.1,-8.7,-2.8,0.2],"tps":196.4,"crest":2.65},"sharp":{"g":[-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-7.5,-8.8,-10.2,-8.6,-7.7,-9.4,-11.5,-11.9,-10.6,-8.3,-6.2,-5.0,-2.5,0.6,1.0,-0.6,-1.7,-1.9,-2.2,-2.5,-1.8,1.7,4.9,4.4,2.7,1.6,1.3,2.6,6.1,8.7,10.8,15.3,18,18,18,3.5,-17.1,-14.9],"tps":502.7,"crest":2.41}}};
-const TEXKEY = () => state.pen === 'ball' ? null : (({ red: 'wax' })[state.pen] || state.pen);   // 볼펜은 즉각 반응하던 원래 소리 그대로
+const TEXKEY = () => { const k = state.pen, K = PENS[k] && PENS[k].kind;   // 색만 다른 필기구도 같은 종류의 녹음 질감을 쓴다
+  if (K === 'ball' || K === 'hl') return null;   // 볼펜은 즉각 반응하던 원래 소리, 형광펜은 따로 만든 '스윽'
+  if (K === 'wax') return 'wax'; if (K === 'sign') return 'sign'; if (K === 'fountain') return 'fountain';
+  return k; };
 /* 연필(HB·2B·샤프): 알갱이 합성. 실제 녹음(교수님이 고른 「pencil」·「pencil on paper」·샤프 녹음)에서 40~65ms 조각을
    무작위로 집어 겹쳐 뿌린다. 코드가 그때그때 뿌리므로 반응이 즉각이고, 속도·필압에 따라 크기·밝기·알갱이 빠르기가 바뀐다 */
 const PGRAIN = { hb: 'g_hb', b2: 'g_b2', sharp: 'g_hb' };   // 샤프: 날카로운 샤프 녹음은 거슬려서(교수님) HB 결을 가늘고 작게
@@ -1379,6 +1398,7 @@ function sndParams(tool, th){
   if (tool === 'graphite' && state.pen === 'sharp') return Object.assign({}, pencilSnd(0, 0), { hp: 2400, lp: 11000, pk: 6800, q: 2.6, tr: [3800, 4600], amt: .4 });
   if (tool === 'wax') return pencilSnd(1, 1);   // 무른 밀랍 심: 굵고 뭉툭한 연필처럼 낮고 부드럽게
   if (tool === 'ball') return SND_BALL;
+  if (tool === 'hl') return SND_HL;
   if (tool === 'fountain') return FOUNTAIN.soft;   // 만년필 소리는 하나(Pixabay 좋아요 51 레퍼런스 기준)
   if (tool === 'sign') return { hp: 300, lp: 2200, pk: 1200, q: 1, db: 2, amt: .5, atk: .006, rel: .02, gMs: null, tr: null };
   return pencilSnd(state.pen === 'b2' ? 1 : 0, advBlunt());
@@ -1411,6 +1431,11 @@ const SND_BALL = { hp: 320, lp: 6000, pk: 2200, q: 1.4, db: 3, amt: .42, atk: .0
   body: { f: 800, q: 1.2, db: 5 },
   gMs: [1, 1.6], gRate: [25, 40], gAmp: .22, tr: [1900, 2300], trMs: [.003, .004],
   turn: { ratio: .45, lp: 1600, tick: { f: 3000, ms: .0025, amp: .25 } } };
+/* 형광펜(참고: 효과음 설명 「넓고 젖은 펠트 촉은 부드럽고 넓은 '끽', 긴 획은 하나로 이어진 끌림」):
+   넓적한 펠트가 종이를 쓸고 지나가는 중저음 '스윽'. 종이 결 알갱이는 거의 없고, 획 첫머리에 살짝 '끽' */
+const SND_HL = { hp: 260, lp: 3600, pk: 1500, q: .9, db: 4, amt: .55, atk: .006, rel: .03,
+  body: { f: 520, q: .9, db: 5 }, gMs: [2.5, 4], gRate: [10, 16], gAmp: .12, tr: null, squeak: true,
+  turn: { ratio: .6, lp: 1500, tick: null } };
 // 만년필(제미나이 분석, 받침은 '공책 여러 장 + 책상'). 프리셋은 고를 수 있다
 const FOUNTAIN = {
   fine: { name: '사각사각 가는 촉', hp: 450, lp: 6400, pk: 3800, q: 2.6, db: 4.5, body: { f: 700, q: 1.2, db: 2 }, amt: .45,
@@ -1481,6 +1506,7 @@ function soundMove(v, p, tool, dist, turn){
     const trMs = P.trMs || [.005, .008];
     if (P.tr) noiseBurst(now, P.tr[0] + Math.random() * (P.tr[1] - P.tr[0]), 1.2, Math.max(target, .08) * (P.trAmp || .7), trMs[0] + Math.random() * (trMs[1] - trMs[0]));
     if (P.thump) noiseBurst(now, P.thump.f, 1, Math.max(target, .08) * P.thump.amp, P.thump.ms);
+    if (P.squeak && Math.random() < .7) feltSqueak(now, Math.max(target, .1));
   }
   Snd.sg.gain.setTargetAtTime(target, now, target > Snd.cur ? (Snd.atk || P.atk) : (Snd.rel || P.rel));
   Snd.cur = target;
@@ -1499,6 +1525,13 @@ function soundMove(v, p, tool, dist, turn){
   }
   Snd.bg.gain.setTargetAtTime(0, now, .03);
   finishMove();
+}
+function feltSqueak(t, amp){   // 젖은 펠트 촉이 종이에 붙었다 미끄러지는 짧은 '끽'(높이가 살짝 오르내림)
+  const ac = Snd.ac, o = ac.createOscillator(), f = ac.createBiquadFilter(), g = ac.createGain(), f0 = 1500 + Math.random() * 700, d = .05 + Math.random() * .05;
+  o.type = 'triangle'; o.frequency.setValueAtTime(f0, t); o.frequency.linearRampToValueAtTime(f0 * (1.08 + Math.random() * .1), t + d * .4); o.frequency.linearRampToValueAtTime(f0 * .94, t + d);
+  f.type = 'bandpass'; f.frequency.value = f0; f.Q.value = 3;
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(amp * .09, t + .008); g.gain.exponentialRampToValueAtTime(.0003, t + d);
+  o.connect(f); f.connect(g); g.connect(Snd.master); o.start(t); o.stop(t + d + .02);
 }
 function finishMove(){
   Snd.last = performance.now();
@@ -1878,10 +1911,53 @@ const PEN_ICON = {
   fountain: '<svg viewBox="0 0 24 24"><g transform="rotate(-45 12 12)"><path d="M1 12l3.6-1.8v3.6z" fill="#d9b45a" stroke="#7a5d1c" stroke-width=".5"/><path d="M1.4 12h3" stroke="#7a5d1c" stroke-width=".4"/><path d="M3.2 11.4l1.4-.6v2.4l-1.4-.6z" fill="#e7e7ea"/><path d="M4.6 10.3h3.4v3.4H4.6z" fill="#111"/><rect x="7.6" y="10.1" width=".6" height="3.8" fill="#d9b45a"/><rect x="8.2" y="9.8" width="7.6" height="4.4" fill="#141416" stroke="#000" stroke-width=".4"/><rect x="15.8" y="9.7" width=".55" height="4.6" fill="#d9b45a"/><rect x="16.6" y="9.7" width=".4" height="4.6" fill="#d9b45a"/><path d="M17 9.7h4.6a1.8 2.3 0 010 4.6H17z" fill="#141416" stroke="#000" stroke-width=".4"/><rect x="17.6" y="9" width="4.6" height=".9" rx=".45" fill="#d9b45a"/><rect x="8.2" y="10.2" width="13" height=".6" fill="rgba(255,255,255,.18)"/></g></svg>',
   sign: '<svg viewBox="0 0 24 24"><g transform="rotate(-45 12 12)"><path d="M1.2 12l2.2-1.1v2.2z" fill="#111"/><rect x="3.4" y="10.6" width="1.6" height="2.8" fill="#d9d9d6"/><rect x="5" y="9.9" width="13" height="4.2" rx=".5" fill="#1d1d20" stroke="#000" stroke-width=".5"/><rect x="5" y="10.3" width="13" height=".7" fill="#4a4a52"/><rect x="17.6" y="9.6" width="5.6" height="4.8" rx="1" fill="#f3f3f1" stroke="#a6a6a2" stroke-width=".55"/></g></svg>'
 };
+{ const rc = (k, from, map) => { let t = PEN_ICON[from]; for (const [a, b] of map) t = t.split(a).join(b); PEN_ICON[k] = t; };
+rc('hyellow', 'sign', [['#1d1d20', 'rgb(246,226,40)'], ['#4a4a52', 'rgb(255,255,80)'], ['fill="#111"', 'fill="rgb(196,180,32)"'], ['stroke="#000"', 'stroke="rgb(123,113,20)"']]);
+  rc('hpink', 'sign', [['#1d1d20', 'rgb(244,112,170)'], ['#4a4a52', 'rgb(255,152,210)'], ['fill="#111"', 'fill="rgb(195,89,136)"'], ['stroke="#000"', 'stroke="rgb(122,56,85)"']]);
+  rc('hgreen', 'sign', [['#1d1d20', 'rgb(118,212,78)'], ['#4a4a52', 'rgb(158,252,118)'], ['fill="#111"', 'fill="rgb(94,169,62)"'], ['stroke="#000"', 'stroke="rgb(59,106,39)"']]);
+  rc('hblue', 'sign', [['#1d1d20', 'rgb(80,188,236)'], ['#4a4a52', 'rgb(120,228,255)'], ['fill="#111"', 'fill="rgb(64,150,188)"'], ['stroke="#000"', 'stroke="rgb(40,94,118)"']]);
+  rc('gball', 'ball', [['#1b1b1e', '#1a6e46']]);
+  rc('rball', 'ball', [['#1b1b1e', '#c41e28']]);
+  rc('bball', 'ball', [['#1b1b1e', '#1e48ba']]);
+  rc('psign', 'sign', [['#1d1d20', '#d44e8c'], ['#4a4a52', '#ea8cb8'], ['fill="#111"', 'fill="#d44e8c"'], ['stroke="#000"', 'stroke="#8a2c58"']]);
+}
+/* 색만 다른 필기구는 메뉴에 한 줄로 두고, 그 아래 색 동그라미로 고른다(초등용 쓰기공책과 같은 방식) */
+const PGROUPS = [
+  { lead: 'ball', keys: ['ball', 'bball', 'rball', 'gball'], label: '볼펜', st: 'bcolor' },
+  { lead: 'sign', keys: ['sign', 'psign'], label: '사인펜', st: 'scolor' },
+  { lead: 'hyellow', keys: ['hyellow', 'hpink', 'hgreen', 'hblue'], label: '형광펜', st: 'hcolor' }
+];
+const groupOf = k => PGROUPS.find(G => G.keys.includes(k));
+const groupNow = G => { const c = store.get(G.st, G.lead); return G.keys.includes(c) ? c : G.lead; };
+/* 필기구를 고를 때 나는 소리: 같은 종류는 같은 녹음, 굵기·크기에 맞게 높낮이만 조금씩 */
+function penPickSound(k){
+  const K = PENS[k] && PENS[k].kind, j = .97 + Math.random() * .06;
+  if (k === 'sharp') { if (!playSample('sclick', 1.3)) soundKnock(); return; }
+  if (K === 'ball') { if (!playSample('click', 1, (k === 'ball' ? 1 : 1.06) * j)) soundKnock(); return; }   // 노크 '딸깍'
+  if (K === 'graphite') { if (!playSample('down', .9, ({ hb: 1, b2: .94 })[k] || 1)) soundClink(); return; }   // 연필 내려놓는 '톡'
+  if (K === 'wax') { playSample('waxdown', 1, j); return; }   // 종이 감은 색연필 '툭'
+  if (K === 'sign') { if (!playSample('cap', 1, k === 'sign' ? 1 : 1.05)) soundCapPop(); return; }   // 사인펜 뚜껑 '뽁'
+  if (K === 'hl') { if (!playSample('cap', 1.15, .82 * j)) soundCapPop(); return; }   // 형광펜: 뚜껑이 크고 두꺼워 더 낮고 굵은 '뽁'
+  if (K === 'fountain') soundFountainCap();   // 만년필 쇠 뚜껑 '찰칵'
+}
+function renderSwatches(){
+  for (const G of PGROUPS) {
+    const b = document.querySelector(`#penMenu button[data-pen="${G.lead}"]`); if (!b) continue;
+    let w = b.nextElementSibling; if (!w || !w.classList.contains('csw')) { w = document.createElement('div'); w.className = 'csw'; b.after(w); }
+    const cur = G.keys.includes(state.pen) ? state.pen : groupNow(G);
+    b.querySelector('svg').outerHTML = PEN_ICON[cur]; b.querySelector('span').textContent = PENS[cur].name;
+    w.innerHTML = '';
+    for (const c of G.keys) { const d = document.createElement('button'); d.className = 'sw' + (c === cur ? ' on' : ''); d.dataset.c = c; d.setAttribute('aria-label', PENS[c].name); d.style.setProperty('--c', `rgb(${PENS[c].rgb})`);
+      d.addEventListener('click', e => { e.stopPropagation(); state.pen = c; store.set('pen', c); store.set(G.st, c); setPenUI(); penPickSound(c); $('#penMenu').classList.remove('open'); selectTool('pencil'); });
+      w.appendChild(d); }
+  }
+}
 function setPenUI(){
+  const G = groupOf(state.pen); if (G) store.set(G.st, state.pen);
   $('#penIcon').innerHTML = PEN_ICON[state.pen];
   $('#penName').textContent = PENS[state.pen].name.replace('진한 ', '');
-  document.querySelectorAll('#penMenu button').forEach(b => b.classList.toggle('on', b.dataset.pen === state.pen));
+  document.querySelectorAll('#penMenu button[data-pen]').forEach(b => b.classList.toggle('on', !!(b.dataset.pen === state.pen || (G && b.dataset.pen === G.lead))));
+  renderSwatches();
   if (typeof refreshTips === 'function') refreshTips();
 }
 (function buildEraserMenu(){
@@ -1897,20 +1973,14 @@ function setPenUI(){
 })();
 (function buildPenMenu(){
   const m = $('#penMenu');
-  for (const k in PENS) {
-    const b = document.createElement('button'); b.dataset.pen = k;
-    b.innerHTML = PEN_ICON[k] + '<span>' + PENS[k].name + '</span>';
+  for (const k0 in PENS) {
+    const G0 = groupOf(k0); if (G0 && G0.lead !== k0) continue;   // 색만 다른 펜은 대표 한 줄 + 색 동그라미
+    const b = document.createElement('button'); b.dataset.pen = k0;
+    b.innerHTML = PEN_ICON[k0] + '<span>' + PENS[k0].name + '</span>';
     m.appendChild(b);
     b.addEventListener('click', e => {
-      e.stopPropagation();
-      state.pen = k; store.set('pen', k); setPenUI(); m.classList.remove('open');
-      if (k === 'ball' && !playSample('click', 1)) soundKnock();
-      if (k === 'sharp' && !playSample('sclick', 1.3)) soundKnock();
-      if (PENS[k].kind === 'graphite' && !PENS[k].fixed && !playSample('down', .9)) soundClink();
-      if (PENS[k].kind === 'wax') playSample('waxdown', 1);   // 종이를 감은 색연필을 내려놓는 '툭'(교수님 녹음): 나무 연필보다 가볍고 둔한 소리
-      if (k === 'sign' && !playSample('cap', 1)) soundCapPop();   // 사인펜: 뚜껑 여는 소리(Pixabay 「Pen Cap」 좋아요 5 — 사인펜(채점용 펜) 뚜껑 녹음. 울림 꼬리는 잘라 건조하게)
-      if (k === 'fountain') soundFountainCap();         // 만년필: 쇠 뚜껑을 빼는 '찰칵'   // 연필(HB·2B): 연필 내려놓는 소리
-      selectTool('pencil');
+      e.stopPropagation(); const k = G0 ? groupNow(G0) : k0;
+      state.pen = k; store.set('pen', k); setPenUI(); m.classList.remove('open'); penPickSound(k); selectTool('pencil');
     });
   }
   const fs = document.createElement('div'); fs.className = 'fs';
@@ -2822,8 +2892,8 @@ function drawAdvSamples(){
   const wave = (w, h) => { const a = []; for (let x = 6; x <= w - 6; x += 2) { const u = (x - 6) / (w - 12); a.push([x, h / 2 + Math.sin(u * 9.4) * h * .22, .45 + .4 * Math.sin(u * 3.1)]); } return a; };
   const loops = (w, h) => { const a = []; const n = 7, step = (w - 24) / (n * 6.2832); for (let t = 0; t <= n * 6.2832; t += .12) { const lift = Math.min(1, t / 3), yy = -h * .34 * Math.cos(t) * lift, x = 12 + step * t - 5 * Math.sin(t) - yy * .35, y = h * .56 + yy; a.push([x, y, .4 + .35 * (.5 + .5 * Math.cos(t))]); } return a; };   // 이어 쓴 필기체 고리
   one('smpSharp', 'hb', wave);
-  one('smpBall', 'ball', wave);
-  one('smpSign', 'sign', wave);
+  one('smpBall', groupNow(PGROUPS[0]), wave);
+  one('smpSign', groupNow(PGROUPS[1]), wave);
   one('smpNib', 'fountain', loops);
 }
 $('#adv').addEventListener('click', e => e.stopPropagation());
