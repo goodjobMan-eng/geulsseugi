@@ -208,7 +208,7 @@
         <label>만년필 촉 <span class="segs" id="advNib"><button data-n="EF">EF</button><button data-n="F">F</button><button data-n="M">M</button><button data-n="B">B</button></span><canvas class="smp tall" id="smpNib"></canvas></label>
         <label>가벼운 모드 <span class="segs" id="advLite"><button data-v="0">끔</button><button data-v="1">켬</button></span><small><span>느린 기기에서 반응이 빨라져요 · 화면이 조금 덜 선명해요</span></small></label>
         <button id="advReset" class="lite">기본값으로</button>
-        <small style="justify-content:flex-end;margin-top:8px;opacity:.7"><span>판 v22 · 11.27.</span></small>
+        <small style="justify-content:flex-end;margin-top:8px;opacity:.7"><span>판 v23 · 11.27.</span></small>
       </div></span>
   </div>
 </header>
@@ -305,6 +305,7 @@ function pattern(ctx, tex, scale){
 const PENS = {
   hb:   { name: '연필 HB',      kind: 'graphite', rgb: [58, 58, 66], r: 1,    lo: .26, hi: .70 },
   b2:   { name: '진한 연필 2B', kind: 'graphite', rgb: [34, 34, 40], r: 1.18, lo: .40, hi: .58 },
+  b4:   { name: '아주 진한 연필 4B', kind: 'graphite', rgb: [22, 22, 26], r: 1.32, lo: .5, hi: .5 },
   ball: { name: '볼펜',         kind: 'ball',     rgb: [30, 40, 86], r: .6 },
   bball: { name: '파란 볼펜', kind: 'ball', rgb: [30, 72, 186], r: .6 },
   rball: { name: '빨간 볼펜', kind: 'ball', rgb: [196, 30, 40], r: .6 },
@@ -313,7 +314,18 @@ const PENS = {
   psign: { name: '분홍 사인펜', kind: 'sign', rgb: [212, 78, 140], r: 1.5 },
   fountain: { name: '만년필',   kind: 'fountain', rgb: [26, 36, 92], r: 1.05 },
   sharp: { name: '샤프', kind: 'graphite', rgb: [60, 60, 68], r: .64, lo: .3, hi: .62, fixed: true },
-  red:  { name: '빨간 색연필(채점)', kind: 'wax', rgb: [204, 32, 40], r: 1.9 },
+  red:  { name: '빨간 색연필', kind: 'wax', rgb: [204, 32, 40], r: 1.9 },
+  corange: { name: '주황 색연필', kind: 'wax', rgb: [238, 128, 34], r: 1.9 },
+  cyellow: { name: '노랑 색연필', kind: 'wax', rgb: [244, 198, 40], r: 1.9 },
+  clime: { name: '연두 색연필', kind: 'wax', rgb: [136, 186, 52], r: 1.9 },
+  cgreen: { name: '초록 색연필', kind: 'wax', rgb: [52, 128, 82], r: 1.9 },
+  csky: { name: '하늘 색연필', kind: 'wax', rgb: [78, 168, 224], r: 1.9 },
+  cblue: { name: '파란 색연필', kind: 'wax', rgb: [44, 92, 172], r: 1.9 },
+  cpurple: { name: '보라 색연필', kind: 'wax', rgb: [118, 70, 160], r: 1.9 },
+  cpink: { name: '분홍 색연필', kind: 'wax', rgb: [234, 112, 160], r: 1.9 },
+  cbrown: { name: '갈색 색연필', kind: 'wax', rgb: [128, 84, 50], r: 1.9 },
+  cgray: { name: '회색 색연필', kind: 'wax', rgb: [138, 140, 146], r: 1.9 },
+  cblack: { name: '검정 색연필', kind: 'wax', rgb: [46, 46, 50], r: 1.9 },
   // 형광펜: 넓적한 촉으로 반투명하게 칠한다(겹치면 진해짐)
   hyellow: { name: '노랑 형광펜', kind: 'hl', rgb: [246, 226, 40], r: 8 },
   hpink: { name: '분홍 형광펜', kind: 'hl', rgb: [244, 112, 170], r: 8 },
@@ -1253,11 +1265,11 @@ const TEX = {"f0":60,"step":6,"pens":{"hb":{"g":[-20.0,-20.0,-20.0,-20.0,-20.0,-
 const TEXKEY = () => { const k = state.pen, K = PENS[k] && PENS[k].kind;   // 색만 다른 필기구도 같은 종류의 녹음 질감을 쓴다
   if (K === 'ball' || K === 'hl') return null;   // 볼펜은 즉각 반응하던 원래 소리, 형광펜은 따로 만든 '스윽'
   if (K === 'wax') return 'wax'; if (K === 'sign') return 'sign'; if (K === 'fountain') return 'fountain';
-  return k; };
+  return k === 'b4' ? 'b2' : k; };
 /* 연필(HB·2B·샤프): 알갱이 합성. 실제 녹음(교수님이 고른 「pencil」·「pencil on paper」·샤프 녹음)에서 40~65ms 조각을
    무작위로 집어 겹쳐 뿌린다. 코드가 그때그때 뿌리므로 반응이 즉각이고, 속도·필압에 따라 크기·밝기·알갱이 빠르기가 바뀐다 */
-const PGRAIN = { hb: 'g_hb', b2: 'g_b2', sharp: 'g_hb' };   // 샤프: 날카로운 샤프 녹음은 거슬려서(교수님) HB 결을 가늘고 작게
-const GCFG = { hb: { amt: .62, len: [.035, .06], rate: 1 }, b2: { amt: .7, len: [.045, .07], rate: 1 }, sharp: { amt: .3, len: [.03, .05], rate: 1.12 } };
+const PGRAIN = { hb: 'g_hb', b2: 'g_b2', b4: 'g_b2', sharp: 'g_hb' };   // 샤프: 날카로운 샤프 녹음은 거슬려서(교수님) HB 결을 가늘고 작게
+const GCFG = { hb: { amt: .62, len: [.035, .06], rate: 1 }, b2: { amt: .7, len: [.045, .07], rate: 1 }, sharp: { amt: .3, len: [.03, .05], rate: 1.12 }, b4: { amt: .78, len: [.055, .085], rate: .86 } };   // 4B: 더 무르고 굵은 심(초등용과 같은 값)
 function playGrain(t){
   const ac = Snd.ac, b = Snd.gBuf, C = Snd.gC, L = C.len[0] + Math.random() * (C.len[1] - C.len[0]), off = Math.random() * Math.max(0, b.duration - L - .01);
   const src = ac.createBufferSource(); src.buffer = b; src.playbackRate.value = Snd.gRate * (.96 + Math.random() * .08);
@@ -1401,7 +1413,7 @@ function sndParams(tool, th){
   if (tool === 'hl') return SND_HL;
   if (tool === 'fountain') return FOUNTAIN.soft;   // 만년필 소리는 하나(Pixabay 좋아요 51 레퍼런스 기준)
   if (tool === 'sign') return { hp: 300, lp: 2200, pk: 1200, q: 1, db: 2, amt: .5, atk: .006, rel: .02, gMs: null, tr: null };
-  return pencilSnd(state.pen === 'b2' ? 1 : 0, advBlunt());
+  return pencilSnd((state.pen === 'b2' || state.pen === 'b4') ? 1 : 0, advBlunt());
 }
 /* 연필 네 끝점(제미나이가 뾰족한 연필·뭉툭한 연필 영상을 듣고 준 값). 진하기(HB→2B)와 닳음(뾰족→뭉툭) 사이를 부드럽게 섞는다.
    주파수는 로그로, 나머지는 직선으로 섞어야 계단 없이 자연스럽게 변한다. */
@@ -1448,7 +1460,7 @@ const FOUNTAIN = {
     atk: .0033, rel: .011, gMs: [1.5, 2.4], gRate: [20, 35], gAmp: .25, tr: [1500, 1700], trMs: [.004, .006],
     thump: { f: 420, ms: .008, amp: .4 }, turn: { ratio: .5, lp: 1400, boost: { f: 2500, ms: .012, amp: .42 } } }
 };
-const thickNow = tool => tool === 'graphite' ? clamp((state.pen === 'b2' ? .85 : 0) + (advBlunt()) * .6, 0, 1) : 0;
+const thickNow = tool => tool === 'graphite' ? clamp(((state.pen === 'b2' || state.pen === 'b4') ? .85 : 0) + (advBlunt()) * .6, 0, 1) : 0;
 function noiseBurst(t0, freq, q, amp, dur){
   const ac = Snd.ac, g0 = ac.createBufferSource(); g0.buffer = Snd.buf;
   const f0 = ac.createBiquadFilter(); f0.type = 'bandpass'; f0.frequency.value = freq; f0.Q.value = q;
@@ -1486,8 +1498,8 @@ function soundMove(v, p, tool, dist, turn){
     if (T0) Snd.crk.playbackRate.setTargetAtTime(clamp(T0.tps / 120, .6, 3), now, .01);
   }
   const TX = Snd.texNode && TEX.pens[Snd.texKey];
-  if (TX) P = Object.assign({}, P, { hp: 70, db: 0, lp: state.pen === 'b2' ? 11000 : 16000, amt: P.amt * (tool === 'wax' ? .55 : 1),
-    body: { f: state.pen === 'b2' ? 380 : 450, q: .8, db: state.pen === 'b2' ? 7 : 5 },   // 종이 묶음·책상이 받쳐 주는 두께(300~600Hz)
+  if (TX) P = Object.assign({}, P, { hp: 70, db: 0, lp: (state.pen === 'b2' || state.pen === 'b4') ? 11000 : 16000, amt: P.amt * (tool === 'wax' ? .55 : 1),
+    body: { f: (state.pen === 'b2' || state.pen === 'b4') ? 380 : 450, q: .8, db: (state.pen === 'b2' || state.pen === 'b4') ? 7 : 5 },   // 종이 묶음·책상이 받쳐 주는 두께(300~600Hz)
     tr: P.tr || [2400, 3200], trAmp: Math.max(P.trAmp || .7, 1),   // 획 첫머리 '착'
     gMs: [.35, .9], gRate: [clamp(TX.tps * .5, 30, 220), clamp(TX.tps * .8, 45, 320)], gAmp: clamp((TX.crest - 1.2) * .45, .25, .9), gN: 1 });
   Snd.hp.frequency.setTargetAtTime(P.hp, now, .05);
@@ -1919,12 +1931,25 @@ rc('hyellow', 'sign', [['#1d1d20', 'rgb(246,226,40)'], ['#4a4a52', 'rgb(255,255,
   rc('gball', 'ball', [['#1b1b1e', '#1a6e46']]);
   rc('rball', 'ball', [['#1b1b1e', '#c41e28']]);
   rc('bball', 'ball', [['#1b1b1e', '#1e48ba']]);
-  rc('psign', 'sign', [['#1d1d20', '#d44e8c'], ['#4a4a52', '#ea8cb8'], ['fill="#111"', 'fill="#d44e8c"'], ['stroke="#000"', 'stroke="#8a2c58"']]);
+  rc('cblue', 'red', [['#cc2028', '#2c5cac'], ['#c8232b', '#2f60b0'], ['#7e1218', '#183868']]);
+rc('cgreen', 'red', [['#cc2028', '#348052'], ['#c8232b', '#368456'], ['#7e1218', '#1c4a2e']]);
+rc('cpurple', 'red', [['#cc2028', '#7646a0'], ['#c8232b', '#7a4aa4'], ['#7e1218', '#432660']]);
+rc('cbrown', 'red', [['#cc2028', '#805432'], ['#c8232b', '#845836'], ['#7e1218', '#4a2e18']]);
+rc('corange', 'red', [['#cc2028', '#ee8022'], ['#c8232b', '#f08626'], ['#7e1218', '#8a4a10']]);
+rc('cyellow', 'red', [['#cc2028', '#f4c628'], ['#c8232b', '#f6ca2c'], ['#7e1218', '#8a6e0e']]);
+rc('clime', 'red', [['#cc2028', '#88ba34'], ['#c8232b', '#8cbe38'], ['#7e1218', '#4a6a18']]);
+rc('csky', 'red', [['#cc2028', '#4ea8e0'], ['#c8232b', '#52ace4'], ['#7e1218', '#1e5a82']]);
+rc('cpink', 'red', [['#cc2028', '#ea70a0'], ['#c8232b', '#ee74a4'], ['#7e1218', '#8a3058']]);
+rc('cblack', 'red', [['#cc2028', '#2e2e32'], ['#c8232b', '#323236'], ['#7e1218', '#0e0e10']]);
+rc('b4', 'b2', [['#3b2a24', '#24384c'], ['#1c120e', '#101c28']]);
+rc('cgray', 'red', [['#cc2028', '#8a8c92'], ['#c8232b', '#8e9096'], ['#7e1218', '#4c4e54']]);
+rc('psign', 'sign', [['#1d1d20', '#d44e8c'], ['#4a4a52', '#ea8cb8'], ['fill="#111"', 'fill="#d44e8c"'], ['stroke="#000"', 'stroke="#8a2c58"']]);
 }
 /* 색만 다른 필기구는 메뉴에 한 줄로 두고, 그 아래 색 동그라미로 고른다(초등용 쓰기공책과 같은 방식) */
 const PGROUPS = [
   { lead: 'ball', keys: ['ball', 'bball', 'rball', 'gball'], label: '볼펜', st: 'bcolor' },
   { lead: 'sign', keys: ['sign', 'psign'], label: '사인펜', st: 'scolor' },
+  { lead: 'red', keys: ['red', 'corange', 'cyellow', 'clime', 'cgreen', 'csky', 'cblue', 'cpurple', 'cpink', 'cbrown', 'cgray', 'cblack'], label: '색연필', st: 'ccolor' },
   { lead: 'hyellow', keys: ['hyellow', 'hpink', 'hgreen', 'hblue'], label: '형광펜', st: 'hcolor' }
 ];
 const groupOf = k => PGROUPS.find(G => G.keys.includes(k));
@@ -1934,7 +1959,7 @@ function penPickSound(k){
   const K = PENS[k] && PENS[k].kind, j = .97 + Math.random() * .06;
   if (k === 'sharp') { if (!playSample('sclick', 1.3)) soundKnock(); return; }
   if (K === 'ball') { if (!playSample('click', 1, (k === 'ball' ? 1 : 1.06) * j)) soundKnock(); return; }   // 노크 '딸깍'
-  if (K === 'graphite') { if (!playSample('down', .9, ({ hb: 1, b2: .94 })[k] || 1)) soundClink(); return; }   // 연필 내려놓는 '톡'
+  if (K === 'graphite') { if (!playSample('down', .9, ({ hb: 1, b2: .94, b4: .88 })[k] || 1)) soundClink(); return; }   // 연필 내려놓는 '톡'
   if (K === 'wax') { playSample('waxdown', 1, j); return; }   // 종이 감은 색연필 '툭'
   if (K === 'sign') { if (!playSample('cap', 1, k === 'sign' ? 1 : 1.05)) soundCapPop(); return; }   // 사인펜 뚜껑 '뽁'
   if (K === 'hl') { if (!playSample('cap', 1.15, .82 * j)) soundCapPop(); return; }   // 형광펜: 뚜껑이 크고 두꺼워 더 낮고 굵은 '뽁'
